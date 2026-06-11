@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: e-patrimoniu-api
+    env: node
+    region: frankfurt          # Cel mai aproape de România
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false            # Setat manual în Render Dashboard → Environment
+      - key: ALLOWED_ORIGIN
+        sync: false            # Setat după ce cunoști URL-ul Vercel
