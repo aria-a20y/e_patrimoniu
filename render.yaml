@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: e-patrimoniu-api
+    runtime: node
+    region: frankfurt
+    plan: free
+
+    # Render rulează comenzile din rădăcina repo-ului
+    buildCommand: cd backend && npm install --production
+    startCommand: cd backend && node index.js
+
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # URL-ul aplicației Flutter pe Vercel — actualizează după primul deploy
+      - key: ALLOWED_ORIGIN
+        value: https://e-patrimoniu.vercel.app
+
+      # Conținutul complet al serviceAccountKey.json (JSON pe o singură linie)
+      # Setează-l manual în Render Dashboard → Environment → Secret Files / Env Vars
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false   # nu se comite în git; se setează manual în Render dashboard
