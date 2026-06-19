@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../styles/auth_styles.dart';
 import '../../theme/app_theme.dart';
 import '../../../core/models/user/user_model.dart';
+import '../../../core/services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -27,28 +26,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      await AuthService.register(
         email: _emailCtl.text.trim(),
         password: _passCtl.text,
+        firstName: _firstNameCtl.text.trim(),
+        lastName: _lastNameCtl.text.trim(),
+        phone: _phoneCtl.text.trim(),
+        role: UserRole.functionar,
       );
-      final user = cred.user;
-      if (user != null) {
-        final displayName = '${_firstNameCtl.text.trim()} ${_lastNameCtl.text.trim()}';
-        await user.updateDisplayName(displayName);
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'firstName': _firstNameCtl.text.trim(),
-          'lastName': _lastNameCtl.text.trim(),
-          'email': _emailCtl.text.trim(),
-          'phone': _phoneCtl.text.trim(),
-          'role': UserRole.functionar.name,
-          'status': UserStatus.activ.name,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        // Trimitem email verificare (cu branding e-Patrimoniu)
-        try {
-          await user.sendEmailVerification();
-        } catch (_) {}
-      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -59,8 +44,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
       Navigator.pop(context);
-    } on FirebaseAuthException catch (e) {
-      _showError(_mapError(e.code));
     } catch (e) {
       _showError('Eroare: $e');
     } finally {

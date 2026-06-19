@@ -1,18 +1,15 @@
 import 'dart:typed_data';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../models/document/document_model.dart';
-import '../config/app_config.dart';
-import 'audit_service.dart';
+import 'api_service.dart';
+
+export '../models/document/document_model.dart';
 
 class DocumentService {
-  static final _firestore = FirebaseFirestore.instance;
   static final _storage = FirebaseStorage.instance;
-  static final _col = _firestore.collection(AppConfig.colDocuments);
 
-  /// Încarcă fișierul în Storage și creează înregistrarea în Firestore
-  /// Funcționează pe web (Uint8List) și pe mobile
-  static Future<DocumentModel> uploadDocument({
+  /// Încarcă fișierul în Firebase Storage și înregistrează metadata în PostgreSQL (via backend)
+  static Future<void> uploadDocument({
     required Uint8List fileBytes,
     required String fileName,
     required String denumire,
@@ -24,97 +21,59 @@ class DocumentService {
     String? auctionId,
     String? note,
   }) async {
-    final ext = fileName.contains('.')
-        ? fileName.split('.').last.toLowerCase()
-        : '';
+    final ext = fileName.contains('.') ? fileName.split('.').last.toLowerCase() : 'bin';
     final storageName = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
     final storagePath = 'documents/$storageName';
 
+    // 1. Upload fișier în Firebase Storage
     final ref = _storage.ref(storagePath);
     final task = await ref.putData(fileBytes);
-    final url = await task.ref.getDownloadURL();
-    final fileSize = fileBytes.length;
+    final fileUrl = await task.ref.getDownloadURL();
 
-    final docRef = await _col.add({
-      'denumire': denumire,
-      'tip': tip.name,
-      'status': DocumentStatus.neverificat.name,
-      'fileUrl': url,
-      'fileType': ext,
-      'fileSize': fileSize,
+    // 2. Salvează metadata în PostgreSQL via backend
+    await ApiService.post('/api/documents', {
       'propertyId': propertyId,
       'transactionId': transactionId,
       'contractId': contractId,
       'auctionId': auctionId,
+      'denumire': denumire,
+      'tip': tip.name,
+      'fileUrl': fileUrl,
+      'fileType': ext,
+      'fileSize': fileBytes.length,
       'note': note,
-      'uploadedAt': FieldValue.serverTimestamp(),
-      'uploadedBy': uploadedBy,
     });
-
-    await AuditService.log(
-      userId: uploadedBy,
-      userName: uploadedBy,
-      actiune: AuditAction.incarcarDocument,
-      entitate: 'Document',
-      entitateId: docRef.id,
-      detalii: 'A încărcat documentul: $denumire',
-    );
-
-    final doc = await docRef.get();
-    return DocumentModel.fromFirestore(doc);
   }
 
-  static Stream<List<DocumentModel>> getByProperty(String propertyId) {
-    return _col
-        .where('propertyId', isEqualTo: propertyId)
-        .orderBy('uploadedAt', descending: true)
-        .snapshots()
-        .map((s) => s.docs.map((d) => DocumentModel.fromFirestore(d)).toList());
-  }
-
-  static Stream<List<DocumentModel>> getAll() {
-    return _col
-        .orderBy('uploadedAt', descending: true)
-        .snapshots()
-        .map((s) => s.docs.map((d) => DocumentModel.fromFirestore(d)).toList());
-  }
-
-  static Future<void> updateStatus(
-    String id,
-    DocumentStatus status, {
-    required String userId,
-  }) async {
-    await _col.doc(id).update({'status': status.name});
-    await AuditService.log(
-      userId: userId,
-      userName: userId,
-      actiune: AuditAction.actualizareStatus,
-      entitate: 'Document',
-      entitateId: id,
-      detalii: 'Status document actualizat: ${status.label}',
-    );
-  }
-
-  static Future<void> delete(String id, String fileUrl, {required String userId}) async {
-    await _col.doc(id).delete();
+  /// Obține toate documentele (opțional filtrate după proprietate)
+  static Future<List<DocumentModel>> getAll({String? propertyId}) async {
+    final query = propertyId != null ? {'propertyId': propertyId} : null;
     try {
-      final ref = _storage.refFromURL(fileUrl);
-      await ref.delete();
-    } catch (_) {}
-    await AuditService.log(
-      userId: userId,
-      userName: userId,
-      actiune: AuditAction.stergere,
-      entitate: 'Document',
-      entitateId: id,
-      detalii: 'Document șters',
-    );
+      final data = await ApiService.get('/api/documents', query: query);
+      return (data as List).map((e) => DocumentModel.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
-  static Future<int> getCountForProperty(String propertyId) async {
-    final snap = await _col
-        .where('propertyId', isEqualTo: propertyId)
-        .get();
-    return snap.docs.length;
+  /// Documente asociate unei proprietăți specifice
+  static Future<List<DocumentModel>> getByProperty(String propertyId) {
+    return getAll(propertyId: propertyId);
+  }
+
+  static Future<void> updateStatus(String id, DocumentStatus status) async {
+    await ApiService.put('/api/documents/$id/status', {'status': status.name});
+  }
+
+  static Future<void> delete(String id, String? fileUrl) async {
+    await ApiService.delete('/api/documents/$id');
+    // Șterge și fișierul din Firebase Storage dacă există
+    if (fileUrl != null && fileUrl.isNotEmpty) {
+      try {
+        await _storage.refFromURL(fileUrl).delete();
+      } catch (_) {
+        // Ignoră eroarea dacă fișierul nu mai există
+      }
+    }
   }
 }

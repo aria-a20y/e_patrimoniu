@@ -1,7 +1,5 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../config/app_config.dart';
 
 class ChatMessage {
   final String id;
@@ -17,32 +15,14 @@ class ChatMessage {
     required this.isUser,
     required this.timestamp,
   });
-
-  factory ChatMessage.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
-    return ChatMessage(
-      id: doc.id,
-      sessionId: d['sessionId'] ?? '',
-      content: d['content'] ?? '',
-      isUser: d['isUser'] ?? true,
-      timestamp: (d['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
-    );
-  }
-
-  Map<String, dynamic> toFirestore() => {
-    'sessionId': sessionId,
-    'content': content,
-    'isUser': isUser,
-    'timestamp': FieldValue.serverTimestamp(),
-  };
 }
 
 class ChatSession {
   final String id;
   final String userId;
-  final String title;
+  String title;
   final DateTime createdAt;
-  final DateTime updatedAt;
+  DateTime updatedAt;
 
   ChatSession({
     required this.id,
@@ -51,21 +31,12 @@ class ChatSession {
     required this.createdAt,
     required this.updatedAt,
   });
-
-  factory ChatSession.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
-    return ChatSession(
-      id: doc.id,
-      userId: d['userId'] ?? '',
-      title: d['title'] ?? 'Sesiune nouă',
-      createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (d['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-    );
-  }
 }
 
 class AiService {
-  static final _firestore = FirebaseFirestore.instance;
+  // Stocare in-memory pentru sesiuni și mesaje chat
+  static final List<ChatSession> _sessions = [];
+  static final List<ChatMessage> _messages = [];
 
   // ===================================================================
   // NOTĂ: Înlocuiește cu cheia ta API Gemini
@@ -173,60 +144,51 @@ Important:
     return '👋 Bună ziua! Sunt Asistentul e-Patrimoniu.\n\nVă pot ajuta cu informații despre:\n- 🏢 Bunuri imobiliare (terenuri, clădiri, spații)\n- 📝 Tranzacții și contracte\n- 🔨 Licitații online\n- 📄 Documente necesare\n- ⚖️ Legislație aplicabilă\n\nCe doriți să știți?';
   }
 
-  // --- Gestionare sesiuni chat ---
+  // --- Gestionare sesiuni chat (in-memory) ---
   static Future<String> createSession(String userId) async {
-    final ref = await _firestore.collection(AppConfig.colChatSessions).add({
-      'userId': userId,
-      'title': 'Sesiune nouă',
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-    return ref.id;
+    final now = DateTime.now();
+    final session = ChatSession(
+      id: now.millisecondsSinceEpoch.toString(),
+      userId: userId,
+      title: 'Sesiune nouă',
+      createdAt: now,
+      updatedAt: now,
+    );
+    _sessions.add(session);
+    return session.id;
   }
 
   static Stream<List<ChatSession>> getSessions(String userId) {
-    return _firestore
-        .collection(AppConfig.colChatSessions)
-        .where('userId', isEqualTo: userId)
-        .orderBy('updatedAt', descending: true)
-        .snapshots()
-        .map((s) => s.docs.map((d) => ChatSession.fromFirestore(d)).toList());
+    final result = _sessions
+        .where((s) => s.userId == userId)
+        .toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return Stream.value(result);
   }
 
   static Stream<List<ChatMessage>> getMessages(String sessionId) {
-    return _firestore
-        .collection(AppConfig.colChatMessages)
-        .where('sessionId', isEqualTo: sessionId)
-        .orderBy('timestamp')
-        .snapshots()
-        .map((s) => s.docs.map((d) => ChatMessage.fromFirestore(d)).toList());
+    final result = _messages
+        .where((m) => m.sessionId == sessionId)
+        .toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return Stream.value(result);
   }
 
   static Future<void> saveMessage(ChatMessage msg) async {
-    await _firestore
-        .collection(AppConfig.colChatMessages)
-        .add(msg.toFirestore());
-    // Actualizăm titlul sesiunii cu primul mesaj al utilizatorului
+    _messages.add(msg);
     if (msg.isUser) {
-      final title = msg.content.length > 50
-          ? '${msg.content.substring(0, 50)}...'
-          : msg.content;
-      await _firestore.collection(AppConfig.colChatSessions).doc(msg.sessionId).update({
-        'updatedAt': FieldValue.serverTimestamp(),
-        'title': title,
-      });
+      final session = _sessions.where((s) => s.id == msg.sessionId).firstOrNull;
+      if (session != null) {
+        session.title = msg.content.length > 50
+            ? '${msg.content.substring(0, 50)}...'
+            : msg.content;
+        session.updatedAt = DateTime.now();
+      }
     }
   }
 
   static Future<void> deleteSession(String sessionId) async {
-    // Ștergem mesajele
-    final msgs = await _firestore
-        .collection(AppConfig.colChatMessages)
-        .where('sessionId', isEqualTo: sessionId)
-        .get();
-    for (final doc in msgs.docs) {
-      await doc.reference.delete();
-    }
-    await _firestore.collection(AppConfig.colChatSessions).doc(sessionId).delete();
+    _messages.removeWhere((m) => m.sessionId == sessionId);
+    _sessions.removeWhere((s) => s.id == sessionId);
   }
 }

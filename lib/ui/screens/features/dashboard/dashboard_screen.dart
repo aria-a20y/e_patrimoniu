@@ -5,39 +5,67 @@ import '../../../../core/services/property_service.dart';
 import '../../../../core/services/other_services.dart';
 import '../../../../core/models/transaction/transaction_model.dart';
 import '../../../../core/models/auction/auction_model.dart';
-import '../../../widgets/stat_card.dart';
-import '../../../widgets/section_header.dart';
+import '../../../widgets/shared_widgets.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  // ── cache pentru a nu reface toate requesturile la rebuild ──
+  Future<Map<String, dynamic>>? _propStatsFuture;
+  Future<Map<String, int>>? _txStatsFuture;
+  Future<int>? _contractCountFuture;
+  Future<int>? _auctionCountFuture;
+  Future<List<TransactionModel>>? _recentTxFuture;
+  Future<List<AuctionModel>>? _recentAuctionFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  void _refresh() {
+    setState(() {
+      _propStatsFuture    = PropertyService.getStats();
+      _txStatsFuture      = TransactionService.getStats();
+      _contractCountFuture = ContractService.getActiveCount();
+      _auctionCountFuture  = AuctionService.getActiveCount();
+      _recentTxFuture     = TransactionService.getAll();
+      _recentAuctionFuture = AuctionService.getAll();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bgGrey,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Welcome header
-            _buildWelcomeHeader(context),
-            const SizedBox(height: 24),
-            // Stats row
-            _buildStatsRow(),
-            const SizedBox(height: 24),
-            // Charts row
-            _buildChartsRow(context),
-            const SizedBox(height: 24),
-            // Recent items
-            _buildRecentSection(context),
-          ],
+      body: RefreshIndicator(
+        onRefresh: () async => _refresh(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildWelcomeHeader(),
+              const SizedBox(height: 24),
+              _buildStatsRow(),
+              const SizedBox(height: 24),
+              _buildChartsRow(),
+              const SizedBox(height: 24),
+              _buildRecentSection(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildWelcomeHeader(BuildContext context) {
+  Widget _buildWelcomeHeader() {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -62,109 +90,95 @@ class DashboardScreen extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   'Evidența bunurilor imobiliare ale unității administrativ-teritoriale',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.75),
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 13),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.account_balance_rounded, color: Colors.white30, size: 60),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white70, size: 22),
+            onPressed: _refresh,
+            tooltip: 'Reîncarcă',
+          ),
+          const Icon(Icons.account_balance_rounded, color: Colors.white24, size: 56),
         ],
       ),
     );
   }
 
   Widget _buildStatsRow() {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: PropertyService.getStats(),
-      builder: (context, propSnap) {
-        return FutureBuilder<Map<String, int>>(
-          future: TransactionService.getStats(),
-          builder: (context, txSnap) {
-            return FutureBuilder<int>(
-              future: ContractService.getActiveCount(),
-              builder: (context, contractSnap) {
-                return FutureBuilder<int>(
-                  future: AuctionService.getActiveCount(),
-                  builder: (context, auctionSnap) {
-                    final props = propSnap.data ?? {};
-                    final txs = txSnap.data ?? {};
-                    final contracts = contractSnap.data ?? 0;
-                    final auctions = auctionSnap.data ?? 0;
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        _propStatsFuture!,
+        _txStatsFuture!,
+        _contractCountFuture!,
+        _auctionCountFuture!,
+      ]),
+      builder: (context, snap) {
+        final props = snap.data?[0] as Map<String, dynamic>? ?? {};
+        final txs = snap.data?[1] as Map<String, int>? ?? {};
+        final contracts = snap.data?[2] as int? ?? 0;
+        final auctions = snap.data?[3] as int? ?? 0;
+        final totalVal = (props['totalValoare'] ?? 0.0) as double;
+        final formattedVal = _formatCurrency(totalVal);
 
-                    final totalVal = props['totalValoare'] ?? 0.0;
-                    final formattedVal = _formatCurrency(totalVal);
-
-                    return LayoutBuilder(builder: (ctx, constraints) {
-                      final isNarrow = constraints.maxWidth < 600;
-                      if (isNarrow) {
-                        return Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: _buildStatCards(props, txs, contracts, auctions, formattedVal),
-                        );
-                      }
-                      return GridView.count(
-                        crossAxisCount: constraints.maxWidth < 900 ? 2 : 5,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 1.6,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: _buildStatCards(props, txs, contracts, auctions, formattedVal),
-                      );
-                    });
-                  },
-                );
-              },
-            );
-          },
-        );
+        return LayoutBuilder(builder: (ctx, constraints) {
+          final cols = constraints.maxWidth < 600 ? 2 : (constraints.maxWidth < 900 ? 2 : 5);
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ));
+          }
+          return GridView.count(
+            crossAxisCount: cols,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.6,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              StatCard(
+                label: 'Bunuri Imobile',
+                value: '${props['total'] ?? 0}',
+                subtitle: 'Active: ${props['active'] ?? 0}',
+                icon: Icons.business_rounded,
+                color: AppTheme.greenEmerald,
+              ),
+              StatCard(
+                label: 'Tranzacții',
+                value: '${txs['total'] ?? 0}',
+                subtitle: 'În derulare: ${txs['inDerulare'] ?? 0}',
+                icon: Icons.swap_horiz_rounded,
+                color: AppTheme.greenMid,
+              ),
+              StatCard(
+                label: 'Contracte',
+                value: '$contracts',
+                subtitle: 'Active',
+                icon: Icons.description_rounded,
+                color: const Color(0xFF2563EB),
+              ),
+              StatCard(
+                label: 'Licitații',
+                value: '$auctions',
+                subtitle: 'Active / în desfășurare',
+                icon: Icons.gavel_rounded,
+                color: const Color(0xFFF59E0B),
+              ),
+              StatCard(
+                label: 'Valoare Patrimoniu',
+                value: formattedVal,
+                subtitle: 'RON valoare inventar',
+                icon: Icons.account_balance_wallet_rounded,
+                color: AppTheme.greenDark,
+                isWide: true,
+              ),
+            ],
+          );
+        });
       },
     );
-  }
-
-  List<Widget> _buildStatCards(Map props, Map txs, int contracts, int auctions, String formattedVal) {
-    return [
-      StatCard(
-        label: 'Bunuri Imobile',
-        value: '${props['total'] ?? 0}',
-        subtitle: 'Active: ${props['active'] ?? 0}',
-        icon: Icons.business_rounded,
-        color: AppTheme.greenEmerald,
-      ),
-      StatCard(
-        label: 'Tranzacții',
-        value: '${txs['total'] ?? 0}',
-        subtitle: 'În derulare: ${txs['inDerulare'] ?? 0}',
-        icon: Icons.swap_horiz_rounded,
-        color: AppTheme.greenMid,
-      ),
-      StatCard(
-        label: 'Contracte',
-        value: '$contracts',
-        subtitle: 'Active',
-        icon: Icons.description_rounded,
-        color: const Color(0xFF2563EB),
-      ),
-      StatCard(
-        label: 'Licitații',
-        value: '$auctions',
-        subtitle: 'Active / în desfășurare',
-        icon: Icons.gavel_rounded,
-        color: const Color(0xFFF59E0B),
-      ),
-      StatCard(
-        label: 'Valoare Patrimoniu',
-        value: formattedVal,
-        subtitle: 'RON valoare inventar',
-        icon: Icons.account_balance_wallet_rounded,
-        color: AppTheme.greenDark,
-        isWide: true,
-      ),
-    ];
   }
 
   String _formatCurrency(double v) {
@@ -173,30 +187,29 @@ class DashboardScreen extends StatelessWidget {
     return v.toStringAsFixed(2);
   }
 
-  Widget _buildChartsRow(BuildContext context) {
+  Widget _buildChartsRow() {
     return LayoutBuilder(builder: (ctx, constraints) {
-      final isNarrow = constraints.maxWidth < 700;
-      if (isNarrow) {
+      if (constraints.maxWidth < 700) {
         return Column(
           children: [
-            _buildPropertyChart(context),
+            _buildPropertyChart(),
             const SizedBox(height: 16),
-            _buildValueChart(context),
+            _buildValueChart(),
           ],
         );
       }
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: _buildPropertyChart(context)),
+          Expanded(child: _buildPropertyChart()),
           const SizedBox(width: 16),
-          Expanded(child: _buildValueChart(context)),
+          Expanded(child: _buildValueChart()),
         ],
       );
     });
   }
 
-  Widget _buildPropertyChart(BuildContext context) {
+  Widget _buildPropertyChart() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -207,13 +220,17 @@ class DashboardScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Bunuri imobile după tip', style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+          const Text('Bunuri imobile după tip',
+              style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
           const SizedBox(height: 20),
           SizedBox(
             height: 180,
             child: FutureBuilder<Map<String, dynamic>>(
-              future: PropertyService.getStats(),
+              future: _propStatsFuture,
               builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
                 final byType = snap.data?['byType'] as Map? ?? {'teren': 0, 'cladire': 0, 'spatiu': 0, 'constructie': 0};
                 final total = (byType['teren'] ?? 0) + (byType['cladire'] ?? 0) + (byType['spatiu'] ?? 0) + (byType['constructie'] ?? 0);
                 if (total == 0) {
@@ -267,8 +284,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildValueChart(BuildContext context) {
-    // Chart static demonstrativ pentru valoarea patrimoniului lunar
+  Widget _buildValueChart() {
     final data = [85.0, 88.0, 92.0, 89.0, 95.0, 100.0, 105.0, 110.0, 115.0, 120.0, 122.0, 125.0];
     return Container(
       padding: const EdgeInsets.all(20),
@@ -280,7 +296,8 @@ class DashboardScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Evoluția valorii patrimoniului', style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+          const Text('Evoluția valorii patrimoniului',
+              style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
           const SizedBox(height: 4),
           const Text('Valori în milioane RON', style: TextStyle(fontSize: 12, color: AppTheme.textGrey)),
           const SizedBox(height: 16),
@@ -317,10 +334,7 @@ class DashboardScreen extends StatelessWidget {
                   color: AppTheme.greenEmerald,
                   barWidth: 2.5,
                   dotData: const FlDotData(show: false),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    color: AppTheme.greenEmerald.withValues(alpha: 0.08),
-                  ),
+                  belowBarData: BarAreaData(show: true, color: AppTheme.greenEmerald.withValues(alpha: 0.08)),
                 ),
               ],
             )),
@@ -330,15 +344,26 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentSection(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: _buildRecentTransactions()),
-        const SizedBox(width: 16),
-        Expanded(child: _buildRecentAuctions()),
-      ],
-    );
+  Widget _buildRecentSection() {
+    return LayoutBuilder(builder: (ctx, constraints) {
+      if (constraints.maxWidth < 700) {
+        return Column(
+          children: [
+            _buildRecentTransactions(),
+            const SizedBox(height: 16),
+            _buildRecentAuctions(),
+          ],
+        );
+      }
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: _buildRecentTransactions()),
+          const SizedBox(width: 16),
+          Expanded(child: _buildRecentAuctions()),
+        ],
+      );
+    });
   }
 
   Widget _buildRecentTransactions() {
@@ -354,11 +379,16 @@ class DashboardScreen extends StatelessWidget {
         children: [
           SectionHeader(title: 'Tranzacții recente', icon: Icons.swap_horiz_rounded),
           const SizedBox(height: 12),
-          StreamBuilder(
-            stream: TransactionService.getAll(),
+          FutureBuilder<List<TransactionModel>>(
+            future: _recentTxFuture,
             builder: (context, snap) {
-              if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-              final txs = snap.data!.take(5).toList();
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snap.hasError) {
+                return Text('Eroare: ${snap.error}', style: const TextStyle(color: AppTheme.errorRed, fontSize: 12));
+              }
+              final txs = (snap.data ?? []).take(5).toList();
               if (txs.isEmpty) return const Text('Nicio tranzacție', style: TextStyle(color: AppTheme.textGrey));
               return Column(
                 children: txs.map((t) => Padding(
@@ -367,10 +397,7 @@ class DashboardScreen extends StatelessWidget {
                     children: [
                       Container(
                         width: 8, height: 8,
-                        decoration: BoxDecoration(
-                          color: _txStatusColor(t.status.name),
-                          shape: BoxShape.circle,
-                        ),
+                        decoration: BoxDecoration(color: _txStatusColor(t.status.name), shape: BoxShape.circle),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -414,11 +441,16 @@ class DashboardScreen extends StatelessWidget {
         children: [
           SectionHeader(title: 'Licitații recente', icon: Icons.gavel_rounded),
           const SizedBox(height: 12),
-          StreamBuilder(
-            stream: AuctionService.getAll(),
+          FutureBuilder<List<AuctionModel>>(
+            future: _recentAuctionFuture,
             builder: (context, snap) {
-              if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-              final auctions = snap.data!.take(5).toList();
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snap.hasError) {
+                return Text('Eroare: ${snap.error}', style: const TextStyle(color: AppTheme.errorRed, fontSize: 12));
+              }
+              final auctions = (snap.data ?? []).take(5).toList();
               if (auctions.isEmpty) return const Text('Nicio licitație', style: TextStyle(color: AppTheme.textGrey));
               return Column(
                 children: auctions.map((a) => Padding(

@@ -1,15 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum AuditAction {
-  adaugare,
-  modificare,
-  stergere,
-  actualizareStatus,
-  incarcarDocument,
-  creareLicitatie,
-  depunereOferta,
-  autentificare,
-  deconectare,
+  adaugare, modificare, stergere, actualizareStatus,
+  incarcarDocument, creareLicitatie, depunereOferta,
+  autentificare, deconectare,
 }
 
 extension AuditActionExt on AuditAction {
@@ -33,7 +25,7 @@ class AuditLogModel {
   final String userId;
   final String userName;
   final AuditAction actiune;
-  final String entitate;      // ex: 'Bun Imobiliar', 'Document', 'Contract'
+  final String entitate;
   final String? entitateId;
   final String detalii;
   final DateTime dataOra;
@@ -49,30 +41,22 @@ class AuditLogModel {
     required this.dataOra,
   });
 
-  factory AuditLogModel.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+  factory AuditLogModel.fromJson(Map<String, dynamic> d) {
     return AuditLogModel(
-      id: doc.id,
-      userId: d['userId'] ?? '',
-      userName: d['userName'] ?? '',
+      id: d['id']?.toString() ?? '',
+      userId: d['userId'] ?? d['user_id'] ?? '',
+      userName: d['userName'] ?? d['user_name'] ?? '',
       actiune: AuditAction.values.firstWhere(
         (e) => e.name == d['actiune'],
         orElse: () => AuditAction.modificare,
       ),
       entitate: d['entitate'] ?? '',
-      entitateId: d['entitateId'],
+      entitateId: d['entitateId']?.toString() ?? d['entitate_id']?.toString(),
       detalii: d['detalii'] ?? '',
-      dataOra: (d['dataOra'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      dataOra: DateTime.tryParse(
+            (d['timestamp'] ?? d['dataOra'] ?? '').toString(),
+          ) ??
+          DateTime.now(),
     );
   }
-
-  Map<String, dynamic> toFirestore() => {
-    'userId': userId,
-    'userName': userName,
-    'actiune': actiune.name,
-    'entitate': entitate,
-    'entitateId': entitateId,
-    'detalii': detalii,
-    'dataOra': FieldValue.serverTimestamp(),
-  };
 }

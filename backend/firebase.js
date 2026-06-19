@@ -3,24 +3,23 @@
 const admin = require('firebase-admin');
 
 /**
- * Initialize Firebase Admin SDK.
+ * Initialize Firebase Admin SDK — AUTH ONLY.
+ * Firestore nu mai este folosit; baza de date principală este PostgreSQL.
  *
- * On Render, set the environment variable:
- *   FIREBASE_SERVICE_ACCOUNT = <contents of serviceAccountKey.json, single-line JSON>
+ * Pe Render, setează variabila de mediu:
+ *   FIREBASE_SERVICE_ACCOUNT = <conținutul serviceAccountKey.json, JSON pe o linie>
  *
- * Locally, either:
- *   a) Set FIREBASE_SERVICE_ACCOUNT the same way, OR
- *   b) Place serviceAccountKey.json in this folder and set
- *      GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json
+ * Local:
+ *   a) Setează FIREBASE_SERVICE_ACCOUNT, SAU
+ *   b) Setează GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json
  *
- * NEVER commit serviceAccountKey.json to git (it is in .gitignore).
+ * NICIODATĂ nu comite serviceAccountKey.json în git (este în .gitignore).
  */
 
 if (admin.apps.length === 0) {
   let credential;
 
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    // Render / CI — JSON stored as environment variable
     try {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
       credential = admin.credential.cert(serviceAccount);
@@ -29,7 +28,6 @@ if (admin.apps.length === 0) {
       process.exit(1);
     }
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    // Local development with a key file path
     credential = admin.credential.applicationDefault();
   } else {
     console.error(
@@ -43,13 +41,11 @@ if (admin.apps.length === 0) {
   admin.initializeApp({
     credential,
     projectId: 'e-patrimoniu',
-    storageBucket: 'e-patrimoniu.firebasestorage.app',
   });
 
-  console.log('Firebase Admin SDK initialized (project: e-patrimoniu)');
+  console.log('Firebase Admin SDK initialized (auth only, project: e-patrimoniu)');
 }
 
-const db   = admin.firestore();
 const auth = admin.auth();
 
-module.exports = { db, auth };
+module.exports = { auth };

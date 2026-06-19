@@ -67,7 +67,6 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
     try {
       final user = await AuthService.getCurrentUserModel();
       final uid = user?.uid ?? '';
-      final uname = user?.fullName ?? '';
 
       if (_isEditing) {
         final updated = widget.property!.copyWith(
@@ -84,7 +83,7 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
           tip: _tip,
           descriere: _descriereCtl.text.trim(),
         );
-        await PropertyService.update(updated, userId: uid, userName: uname);
+        await PropertyService.update(updated);
       } else {
         final newProp = PropertyModel(
           id: '',
@@ -104,7 +103,7 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
           updatedAt: DateTime.now(),
           createdBy: uid,
         );
-        await PropertyService.create(newProp, userId: uid, userName: uname);
+        await PropertyService.create(newProp);
       }
       if (!mounted) return;
       Navigator.pop(context);

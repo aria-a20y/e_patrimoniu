@@ -18,6 +18,19 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
   JuridicalDomain? _filterDomeniu;
   PropertyStatus? _filterStatus;
   String _searchQuery = '';
+  Future<List<PropertyModel>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = PropertyService.getAll(tip: _filterTip, status: _filterStatus);
+  }
+
+  void _loadData() {
+    setState(() {
+      _future = PropertyService.getAll(tip: _filterTip, status: _filterStatus);
+    });
+  }
 
   Color _statusColor(PropertyStatus s) {
     switch (s) {
@@ -36,16 +49,16 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
         children: [
           _buildFiltersBar(),
           Expanded(
-            child: StreamBuilder<List<PropertyModel>>(
-              stream: PropertyService.getAll(
-                tip: _filterTip,
-                domeniu: _filterDomeniu,
-                status: _filterStatus,
-              ),
+            child: FutureBuilder<List<PropertyModel>>(
+              future: _future,
               builder: (context, snap) {
                 if (snap.hasError) return Center(child: Text('Eroare: ${snap.error}'));
-                if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-                var props = snap.data!;
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                var props = snap.data ?? [];
+                // Client-side: domeniu + search
+                if (_filterDomeniu != null) props = props.where((p) => p.domeniuJuridic == _filterDomeniu).toList();
                 if (_searchQuery.isNotEmpty) {
                   final q = _searchQuery.toLowerCase();
                   props = props.where((p) =>
@@ -114,7 +127,7 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
               const DropdownMenuItem(value: null, child: Text('Toate tipurile')),
               ...PropertyType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.label))),
             ],
-            onChanged: (v) => setState(() => _filterTip = v),
+            onChanged: (v) { _filterTip = v; _loadData(); },
           ),
           _filterDropdown<JuridicalDomain?>(
             label: 'Domeniu juridic',
@@ -132,11 +145,11 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
               const DropdownMenuItem(value: null, child: Text('Toate statusurile')),
               ...PropertyStatus.values.map((s) => DropdownMenuItem(value: s, child: Text(s.label))),
             ],
-            onChanged: (v) => setState(() => _filterStatus = v),
+            onChanged: (v) { _filterStatus = v; _loadData(); },
           ),
           if (_filterTip != null || _filterDomeniu != null || _filterStatus != null || _searchQuery.isNotEmpty)
             TextButton.icon(
-              onPressed: () => setState(() { _filterTip = null; _filterDomeniu = null; _filterStatus = null; _searchQuery = ''; }),
+              onPressed: () { _filterTip = null; _filterDomeniu = null; _filterStatus = null; _searchQuery = ''; _loadData(); },
               icon: const Icon(Icons.clear, size: 16),
               label: const Text('Resetare filtre'),
               style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
@@ -352,13 +365,8 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
       confirmLabel: 'Șterge',
     );
     if (confirmed == true) {
-      final user = await AuthService.getCurrentUserModel();
-      await PropertyService.delete(
-        p.id,
-        userId: user?.uid ?? '',
-        userName: user?.fullName ?? '',
-        denumire: p.denumire,
-      );
+      await PropertyService.delete(p.id);
+      _loadData();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Bun imobiliar șters'), backgroundColor: AppTheme.successGreen),

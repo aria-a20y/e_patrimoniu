@@ -1,21 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-enum ContractStatus {
-  activ,
-  prelungit,
-  reziliat,
-  expirat,
-  finalizat,
-  anulat,
-}
+enum ContractStatus { activ, prelungit, reziliat, expirat, finalizat, anulat }
 
 enum ContractChangeType {
-  prelungire,
-  reziliere,
-  actualizareChirie,
-  actualizareRedeventa,
-  modificareDurata,
-  actAditional,
+  prelungire, reziliere, actualizareChirie,
+  actualizareRedeventa, modificareDurata, actAditional,
 }
 
 extension ContractStatusExt on ContractStatus {
@@ -79,17 +66,16 @@ class ContractModel {
     required this.createdBy,
   });
 
-  factory ContractModel.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+  factory ContractModel.fromJson(Map<String, dynamic> d) {
     return ContractModel(
-      id: doc.id,
-      propertyId: d['propertyId'] ?? '',
+      id: d['id']?.toString() ?? '',
+      propertyId: d['propertyId']?.toString() ?? '',
       propertyDenumire: d['propertyDenumire'] ?? '',
-      transactionId: d['transactionId'],
+      transactionId: d['transactionId']?.toString(),
       numarContract: d['numarContract'] ?? '',
       parteContractanta: d['parteContractanta'] ?? '',
-      dataInceput: (d['dataInceput'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      dataFinal: (d['dataFinal'] as Timestamp?)?.toDate() ?? DateTime.now().add(const Duration(days: 365)),
+      dataInceput: _parseDate(d['dataInceput']),
+      dataFinal: _parseDate(d['dataFinal']),
       valoare: (d['valoare'] ?? 0).toDouble(),
       valutaMoneda: d['valutaMoneda'] ?? 'RON',
       status: ContractStatus.values.firstWhere(
@@ -98,74 +84,27 @@ class ContractModel {
       ),
       documentUrl: d['documentUrl'],
       note: d['note'],
-      createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: _parseDate(d['createdAt']),
       createdBy: d['createdBy'] ?? '',
     );
   }
 
-  Map<String, dynamic> toFirestore() => {
+  static DateTime _parseDate(dynamic v) {
+    if (v == null) return DateTime.now();
+    if (v is DateTime) return v;
+    return DateTime.tryParse(v.toString()) ?? DateTime.now();
+  }
+
+  Map<String, dynamic> toJson() => {
     'propertyId': propertyId,
     'propertyDenumire': propertyDenumire,
     'transactionId': transactionId,
     'numarContract': numarContract,
     'parteContractanta': parteContractanta,
-    'dataInceput': Timestamp.fromDate(dataInceput),
-    'dataFinal': Timestamp.fromDate(dataFinal),
+    'dataInceput': dataInceput.toIso8601String(),
+    'dataFinal': dataFinal.toIso8601String(),
     'valoare': valoare,
     'valutaMoneda': valutaMoneda,
-    'status': status.name,
-    'documentUrl': documentUrl,
     'note': note,
-    'createdAt': FieldValue.serverTimestamp(),
-    'createdBy': createdBy,
-  };
-}
-
-class ContractChange {
-  final String id;
-  final String contractId;
-  final ContractChangeType tip;
-  final String descriere;
-  final DateTime data;
-  final String? documentUrl;
-  final String createdBy;
-  final DateTime createdAt;
-
-  ContractChange({
-    required this.id,
-    required this.contractId,
-    required this.tip,
-    required this.descriere,
-    required this.data,
-    this.documentUrl,
-    required this.createdBy,
-    required this.createdAt,
-  });
-
-  factory ContractChange.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
-    return ContractChange(
-      id: doc.id,
-      contractId: d['contractId'] ?? '',
-      tip: ContractChangeType.values.firstWhere(
-        (e) => e.name == d['tip'],
-        orElse: () => ContractChangeType.actAditional,
-      ),
-      descriere: d['descriere'] ?? '',
-      data: (d['data'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      documentUrl: d['documentUrl'],
-      createdBy: d['createdBy'] ?? '',
-      createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-    );
-  }
-
-  Map<String, dynamic> toFirestore() => {
-    'contractId': contractId,
-    'tip': tip.name,
-    'descriere': descriere,
-    'data': Timestamp.fromDate(data),
-    'documentUrl': documentUrl,
-    'createdBy': createdBy,
-    'createdAt': FieldValue.serverTimestamp(),
   };
 }

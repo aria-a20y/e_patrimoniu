@@ -19,6 +19,17 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   DocumentStatus? _filterStatus;
   String _searchQuery = '';
   bool _uploading = false;
+  Future<List<DocumentModel>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = DocumentService.getAll();
+  }
+
+  void _loadData() {
+    setState(() => _future = DocumentService.getAll());
+  }
 
   Color _statusColor(DocumentStatus s) {
     switch (s) {
@@ -73,6 +84,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         uploadedBy: user?.uid ?? '',
       );
       if (mounted) {
+        _loadData();
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Document încărcat cu succes'),
           backgroundColor: AppTheme.successGreen,
@@ -131,11 +143,12 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
           if (_uploading)
             const LinearProgressIndicator(backgroundColor: AppTheme.greenPale, color: AppTheme.greenEmerald),
           Expanded(
-            child: StreamBuilder<List<DocumentModel>>(
-              stream: DocumentService.getAll(),
+            child: FutureBuilder<List<DocumentModel>>(
+              future: _future,
               builder: (context, snap) {
-                if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-                var docs = snap.data!;
+                if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                if (snap.hasError) return Center(child: Text('Eroare: ${snap.error}'));
+                var docs = snap.data ?? [];
                 if (_filterTip != null) docs = docs.where((d) => d.tip == _filterTip).toList();
                 if (_filterStatus != null) docs = docs.where((d) => d.status == _filterStatus).toList();
                 if (_searchQuery.isNotEmpty) {
@@ -299,14 +312,14 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
           ],
           onSelected: (action) async {
             if (action == 'verify') {
-              final user = await AuthService.getCurrentUserModel();
-              await DocumentService.updateStatus(doc.id, DocumentStatus.verificat, userId: user?.uid ?? '');
+              await DocumentService.updateStatus(doc.id, DocumentStatus.verificat);
+              _loadData();
             } else if (action == 'delete') {
               if (!mounted) return;
               final ok = await showConfirmDialog(context, title: 'Ștergere document', content: 'Sigur doriți să ștergeți "${doc.denumire}"?');
               if (ok == true) {
-                final user = await AuthService.getCurrentUserModel();
-                await DocumentService.delete(doc.id, doc.fileUrl, userId: user?.uid ?? '');
+                await DocumentService.delete(doc.id, doc.fileUrl);
+                _loadData();
               }
             }
           },

@@ -23,3 +23,7 @@ services:
       # Setează-l manual în Render Dashboard → Environment → Secret Files / Env Vars
       - key: FIREBASE_SERVICE_ACCOUNT
         sync: false   # nu se comite în git; se setează manual în Render dashboard
+
+      # Furnizat automat de Render dacă adaugi un PostgreSQL addon la serviciu
+      - key: DATABASE_URL
+        sync: false

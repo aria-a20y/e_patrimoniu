@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum PropertyType { teren, cladire, spatiu, constructie }
 enum JuridicalDomain { public, privat }
 enum PropertyStatus { activ, inactiv, scosEvidenta, inLitigiu }
@@ -44,8 +42,8 @@ class PropertyModel {
   final JuridicalDomain domeniuJuridic;
   final String numarCadastral;
   final String numarCarteF;
-  final double suprafata;  // mp
-  final double valoareInventar;  // RON
+  final double suprafata;
+  final double valoareInventar;
   final String destinatie;
   final PropertyStatus status;
   final String? descriere;
@@ -74,10 +72,9 @@ class PropertyModel {
     required this.createdBy,
   });
 
-  factory PropertyModel.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+  factory PropertyModel.fromJson(Map<String, dynamic> d) {
     return PropertyModel(
-      id: doc.id,
+      id: d['id']?.toString() ?? '',
       denumire: d['denumire'] ?? '',
       tip: PropertyType.values.firstWhere(
         (e) => e.name == d['tip'],
@@ -100,13 +97,19 @@ class PropertyModel {
       ),
       descriere: d['descriere'],
       imageUrl: d['imageUrl'],
-      createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (d['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: _parseDate(d['createdAt']),
+      updatedAt: _parseDate(d['updatedAt']),
       createdBy: d['createdBy'] ?? '',
     );
   }
 
-  Map<String, dynamic> toFirestore() => {
+  static DateTime _parseDate(dynamic v) {
+    if (v == null) return DateTime.now();
+    if (v is DateTime) return v;
+    return DateTime.tryParse(v.toString()) ?? DateTime.now();
+  }
+
+  Map<String, dynamic> toJson() => {
     'denumire': denumire,
     'tip': tip.name,
     'adresa': adresa,
@@ -120,9 +123,6 @@ class PropertyModel {
     'status': status.name,
     'descriere': descriere,
     'imageUrl': imageUrl,
-    'createdAt': FieldValue.serverTimestamp(),
-    'updatedAt': FieldValue.serverTimestamp(),
-    'createdBy': createdBy,
   };
 
   PropertyModel copyWith({

@@ -183,4 +183,24 @@ router.delete('/:id', verifyToken, requireAdminOrStaff, async (req, res) => {
   }
 });
 
+// DELETE /api/documents/:id
+router.delete('/:id', verifyToken, requireAdminOrStaff, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM documents WHERE id = $1 RETURNING denumire',
+      [req.params.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Document negăsit.' });
+
+    await writeAuditLog({
+      userId: req.uid, userName: req.userName,
+      actiune: 'stergere', entitate: 'Document', entitateId: req.params.id,
+      detalii: `Document șters: ${result.rows[0].denumire}`,
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Eroare server.' });
+  }
+});
+
 module.exports = router;

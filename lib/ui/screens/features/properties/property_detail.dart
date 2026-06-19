@@ -240,11 +240,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
   // ── TAB 2: DOCUMENTE ────────────────────────────────────────
   Widget _buildDocumentsTab(String propertyId) {
-    return StreamBuilder<List<DocumentModel>>(
-      stream: DocumentService.getByProperty(propertyId),
+    return FutureBuilder<List<DocumentModel>>(
+      future: DocumentService.getByProperty(propertyId),
       builder: (context, snap) {
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        final docs = snap.data!;
+        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        final docs = snap.data ?? [];
         if (docs.isEmpty) return const EmptyState(message: 'Niciun document atașat', icon: Icons.folder_outlined);
         return ListView.separated(
           padding: const EdgeInsets.all(16),
@@ -291,11 +291,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
   // ── TAB 3: TRANZACȚII ───────────────────────────────────────
   Widget _buildTransactionsTab(String propertyId) {
-    return StreamBuilder<List<TransactionModel>>(
-      stream: TransactionService.getAll(propertyId: propertyId),
+    return FutureBuilder<List<TransactionModel>>(
+      future: TransactionService.getAll(propertyId: propertyId),
       builder: (context, snap) {
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        final txs = snap.data!;
+        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        final txs = snap.data ?? [];
         if (txs.isEmpty) return const EmptyState(message: 'Nicio tranzacție pentru acest bun', icon: Icons.swap_horiz_outlined);
         return ListView.separated(
           padding: const EdgeInsets.all(16),
@@ -344,11 +344,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
   // ── TAB 4: CONTRACTE ────────────────────────────────────────
   Widget _buildContractsTab(String propertyId) {
-    return StreamBuilder<List<ContractModel>>(
-      stream: ContractService.getAll(propertyId: propertyId),
+    return FutureBuilder<List<ContractModel>>(
+      future: ContractService.getAll(propertyId: propertyId),
       builder: (context, snap) {
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        final contracts = snap.data!;
+        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        final contracts = snap.data ?? [];
         if (contracts.isEmpty) return const EmptyState(message: 'Niciun contract pentru acest bun', icon: Icons.description_outlined);
         return ListView.separated(
           padding: const EdgeInsets.all(16),
@@ -391,11 +391,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
   // ── TAB 5: LICITAȚII ────────────────────────────────────────
   Widget _buildAuctionsTab(String propertyId) {
-    return StreamBuilder<List<AuctionModel>>(
-      stream: AuctionService.getAll(),
+    return FutureBuilder<List<AuctionModel>>(
+      future: AuctionService.getAll(),
       builder: (context, snap) {
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        final auctions = snap.data!.where((a) => a.propertyId == propertyId).toList();
+        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        final auctions = (snap.data ?? []).where((a) => a.propertyId == propertyId).toList();
         if (auctions.isEmpty) return const EmptyState(message: 'Nicio licitație pentru acest bun', icon: Icons.gavel_outlined);
         return ListView.separated(
           padding: const EdgeInsets.all(16),

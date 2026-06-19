@@ -14,6 +14,17 @@ class AuditScreen extends StatefulWidget {
 class _AuditScreenState extends State<AuditScreen> {
   AuditAction? _filterAction;
   String _searchQuery = '';
+  Future<List<AuditLogModel>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = AuditService.getLogs();
+  }
+
+  void _loadData() {
+    setState(() => _future = AuditService.getLogs());
+  }
 
   Color _actionColor(AuditAction a) {
     switch (a) {
@@ -51,11 +62,13 @@ class _AuditScreenState extends State<AuditScreen> {
         children: [
           _buildFiltersBar(),
           Expanded(
-            child: StreamBuilder<List<AuditLogModel>>(
-              stream: AuditService.getLogs(actiune: _filterAction),
+            child: FutureBuilder<List<AuditLogModel>>(
+              future: _future,
               builder: (context, snap) {
-                if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-                var logs = snap.data!;
+                if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                if (snap.hasError) return Center(child: Text('Eroare: ${snap.error}'));
+                var logs = snap.data ?? [];
+                if (_filterAction != null) logs = logs.where((l) => l.actiune == _filterAction).toList();
                 if (_searchQuery.isNotEmpty) {
                   final q = _searchQuery.toLowerCase();
                   logs = logs.where((l) =>

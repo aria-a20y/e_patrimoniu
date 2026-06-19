@@ -15,6 +15,17 @@ class AuctionsScreen extends StatefulWidget {
 class _AuctionsScreenState extends State<AuctionsScreen> {
   AuctionStatus? _filterStatus;
   String _searchQuery = '';
+  Future<List<AuctionModel>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = AuctionService.getAll();
+  }
+
+  void _loadData() {
+    setState(() => _future = AuctionService.getAll());
+  }
 
   Color _statusColor(AuctionStatus s) {
     switch (s) {
@@ -36,11 +47,13 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
         children: [
           _buildFiltersBar(),
           Expanded(
-            child: StreamBuilder<List<AuctionModel>>(
-              stream: AuctionService.getAll(status: _filterStatus),
+            child: FutureBuilder<List<AuctionModel>>(
+              future: _future,
               builder: (context, snap) {
-                if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-                var auctions = snap.data!;
+                if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                if (snap.hasError) return Center(child: Text('Eroare: ${snap.error}'));
+                var auctions = snap.data ?? [];
+                if (_filterStatus != null) auctions = auctions.where((a) => a.status == _filterStatus).toList();
                 if (_searchQuery.isNotEmpty) {
                   final q = _searchQuery.toLowerCase();
                   auctions = auctions.where((a) => a.titlu.toLowerCase().contains(q) || a.propertyDenumire.toLowerCase().contains(q)).toList();
@@ -208,8 +221,8 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
             if (a.status == AuctionStatus.draft)
               TextButton.icon(
                 onPressed: () async {
-                  final user = await AuthService.getCurrentUserModel();
-                  await AuctionService.publish(a.id, userId: user?.uid ?? '', userName: user?.fullName ?? '');
+                  await AuctionService.updateStatus(a.id, AuctionStatus.publicata);
+                  _loadData();
                 },
                 icon: const Icon(Icons.publish_rounded, size: 16),
                 label: const Text('Publică'),
@@ -244,11 +257,11 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
         content: SizedBox(
           width: 500,
           height: 300,
-          child: StreamBuilder<List<BidModel>>(
-            stream: AuctionService.getBids(a.id),
+          child: FutureBuilder<List<BidModel>>(
+            future: AuctionService.getBids(a.id),
             builder: (context, snap) {
-              if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-              final bids = snap.data!;
+              if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+              final bids = snap.data ?? [];
               if (bids.isEmpty) return const Center(child: Text('Nicio ofertă depusă', style: TextStyle(color: AppTheme.textGrey)));
               return ListView.separated(
                 itemCount: bids.length,
@@ -293,12 +306,11 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warningOrange, foregroundColor: Colors.white),
             onPressed: () async {
               Navigator.pop(ctx);
-              final user = await AuthService.getCurrentUserModel();
               await AuctionService.selectWinner(
                 a.id, 'winner_id', numeCtl.text.trim(),
                 double.tryParse(ofertaCtl.text) ?? 0,
-                userId: user?.uid ?? '', userName: user?.fullName ?? '',
               );
+              _loadData();
             },
             child: const Text('Confirmă câștigătorul'),
           ),
@@ -374,10 +386,10 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
                   dataInceput: DateTime.now(),
                   dataFinal: DateTime.now().add(const Duration(days: 14)),
                   status: AuctionStatus.draft,
-                  documentIds: [],
                   createdAt: DateTime.now(), createdBy: user?.uid ?? '',
                 );
-                await AuctionService.create(auction, userId: user?.uid ?? '', userName: user?.fullName ?? '');
+                await AuctionService.create(auction);
+                _loadData();
               },
               child: const Text('Adaugă'),
             ),

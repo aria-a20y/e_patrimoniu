@@ -1,111 +1,48 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/property/property_model.dart';
-import '../config/app_config.dart';
-import 'audit_service.dart';
+import 'api_service.dart';
 
 class PropertyService {
-  static final _firestore = FirebaseFirestore.instance;
-  static final _col = _firestore.collection(AppConfig.colProperties);
-
-  static Stream<List<PropertyModel>> getAll({
+  static Future<List<PropertyModel>> getAll({
     PropertyType? tip,
-    JuridicalDomain? domeniu,
     PropertyStatus? status,
-  }) {
-    Query query = _col.orderBy('createdAt', descending: true);
-    if (tip != null) query = query.where('tip', isEqualTo: tip.name);
-    if (domeniu != null) query = query.where('domeniuJuridic', isEqualTo: domeniu.name);
-    if (status != null) query = query.where('status', isEqualTo: status.name);
-    return query.snapshots().map(
-      (s) => s.docs.map((d) => PropertyModel.fromFirestore(d)).toList(),
-    );
+  }) async {
+    final query = <String, String>{};
+    if (tip != null) query['tip'] = tip.name;
+    if (status != null) query['status'] = status.name;
+
+    final data = await ApiService.get('/api/properties', query: query.isEmpty ? null : query);
+    return (data as List).map((e) => PropertyModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   static Future<PropertyModel?> getById(String id) async {
-    final doc = await _col.doc(id).get();
-    if (!doc.exists) return null;
-    return PropertyModel.fromFirestore(doc);
+    final data = await ApiService.get('/api/properties/$id');
+    return PropertyModel.fromJson(data as Map<String, dynamic>);
   }
 
-  static Future<String> create(PropertyModel p, {
-    required String userId,
-    required String userName,
-  }) async {
-    final ref = await _col.add(p.toFirestore());
-    await AuditService.log(
-      userId: userId,
-      userName: userName,
-      actiune: AuditAction.adaugare,
-      entitate: 'Bun Imobiliar',
-      entitateId: ref.id,
-      detalii: 'A adăugat bunul imobiliar: ${p.denumire}',
-    );
-    return ref.id;
+  static Future<String> create(PropertyModel p) async {
+    final data = await ApiService.post('/api/properties', p.toJson());
+    return (data as Map<String, dynamic>)['id'].toString();
   }
 
-  static Future<void> update(PropertyModel p, {
-    required String userId,
-    required String userName,
-  }) async {
-    final data = p.toFirestore();
-    data['updatedAt'] = FieldValue.serverTimestamp();
-    await _col.doc(p.id).update(data);
-    await AuditService.log(
-      userId: userId,
-      userName: userName,
-      actiune: AuditAction.modificare,
-      entitate: 'Bun Imobiliar',
-      entitateId: p.id,
-      detalii: 'A modificat bunul imobiliar: ${p.denumire}',
-    );
+  static Future<void> update(PropertyModel p) async {
+    await ApiService.put('/api/properties/${p.id}', p.toJson());
   }
 
-  static Future<void> updateStatus(
-    String id,
-    PropertyStatus status, {
-    required String userId,
-    required String userName,
-    required String denumire,
-  }) async {
-    await _col.doc(id).update({
-      'status': status.name,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-    await AuditService.log(
-      userId: userId,
-      userName: userName,
-      actiune: AuditAction.actualizareStatus,
-      entitate: 'Bun Imobiliar',
-      entitateId: id,
-      detalii: 'Status actualizat la "${status.label}" pentru: $denumire',
-    );
+  static Future<void> updateStatus(String id, PropertyStatus status) async {
+    await ApiService.put('/api/properties/$id', {'status': status.name});
   }
 
-  static Future<void> delete(String id, {
-    required String userId,
-    required String userName,
-    required String denumire,
-  }) async {
-    await _col.doc(id).delete();
-    await AuditService.log(
-      userId: userId,
-      userName: userName,
-      actiune: AuditAction.stergere,
-      entitate: 'Bun Imobiliar',
-      entitateId: id,
-      detalii: 'A șters bunul imobiliar: $denumire',
-    );
+  static Future<void> delete(String id) async {
+    await ApiService.delete('/api/properties/$id');
   }
 
-  /// Statistici pentru dashboard
+  /// Statistici pentru dashboard — calculat local din lista completă
   static Future<Map<String, dynamic>> getStats() async {
-    final snap = await _col.get();
-    final all = snap.docs.map((d) => PropertyModel.fromFirestore(d)).toList();
-    
+    final all = await getAll();
     int active = 0, teren = 0, cladire = 0, spatiu = 0, constructie = 0;
     double totalValoare = 0;
 
-    for (var p in all) {
+    for (final p in all) {
       if (p.status == PropertyStatus.activ) active++;
       totalValoare += p.valoareInventar;
       switch (p.tip) {

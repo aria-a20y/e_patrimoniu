@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum UserRole { administrator, functionar, extern }
 enum UserStatus { activ, inactiv, suspendat }
 
@@ -50,17 +48,16 @@ class UserModel {
 
   String get fullName => '$firstName $lastName'.trim();
 
-  factory UserModel.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+  factory UserModel.fromJson(Map<String, dynamic> d) {
     return UserModel(
-      uid: doc.id,
+      uid: d['id']?.toString() ?? d['uid']?.toString() ?? '',
       firstName: d['firstName'] ?? '',
       lastName: d['lastName'] ?? '',
       email: d['email'] ?? '',
       phone: d['phone'] ?? '',
       role: UserRole.values.firstWhere(
         (e) => e.name == d['role'],
-        orElse: () => UserRole.functionar,
+        orElse: () => UserRole.extern,
       ),
       status: UserStatus.values.firstWhere(
         (e) => e.name == d['status'],
@@ -68,19 +65,17 @@ class UserModel {
       ),
       photoUrl: d['photoUrl'],
       departament: d['departament'],
-      createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: DateTime.tryParse(d['createdAt']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 
-  Map<String, dynamic> toFirestore() => {
+  Map<String, dynamic> toJson() => {
     'firstName': firstName,
     'lastName': lastName,
     'email': email,
     'phone': phone,
     'role': role.name,
     'status': status.name,
-    'photoUrl': photoUrl,
     'departament': departament,
-    'createdAt': FieldValue.serverTimestamp(),
   };
 }

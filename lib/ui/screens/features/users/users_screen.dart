@@ -15,6 +15,17 @@ class _UsersScreenState extends State<UsersScreen> {
   String _searchQuery = '';
   UserRole? _filterRole;
   UserStatus? _filterStatus;
+  Future<List<UserModel>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = AuthService.getAllUsers();
+  }
+
+  void _loadData() {
+    setState(() => _future = AuthService.getAllUsers());
+  }
 
   Color _roleColor(UserRole r) {
     switch (r) {
@@ -40,11 +51,12 @@ class _UsersScreenState extends State<UsersScreen> {
         children: [
           _buildFiltersBar(),
           Expanded(
-            child: StreamBuilder<List<UserModel>>(
-              stream: AuthService.getAllUsers(),
+            child: FutureBuilder<List<UserModel>>(
+              future: _future,
               builder: (context, snap) {
-                if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-                var users = snap.data!;
+                if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                if (snap.hasError) return Center(child: Text('Eroare: ${snap.error}'));
+                var users = snap.data ?? [];
                 if (_filterRole != null) users = users.where((u) => u.role == _filterRole).toList();
                 if (_filterStatus != null) users = users.where((u) => u.status == _filterStatus).toList();
                 if (_searchQuery.isNotEmpty) {
@@ -192,6 +204,7 @@ class _UsersScreenState extends State<UsersScreen> {
               final status = UserStatus.values.firstWhere((s) => s.name == val.substring(7));
               await AuthService.updateUserStatus(u.uid, status);
             }
+            _loadData();
           },
         )),
       ]),

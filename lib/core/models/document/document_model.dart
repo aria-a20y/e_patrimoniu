@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum DocumentType {
   hcl,
   extrasCF,
@@ -79,11 +77,10 @@ class DocumentModel {
     required this.uploadedBy,
   });
 
-  factory DocumentModel.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+  factory DocumentModel.fromJson(Map<String, dynamic> d) {
     return DocumentModel(
-      id: doc.id,
-      denumire: d['denumire'] ?? '',
+      id: d['id']?.toString() ?? '',
+      denumire: d['denumire']?.toString() ?? '',
       tip: DocumentType.values.firstWhere(
         (e) => e.name == d['tip'],
         orElse: () => DocumentType.altele,
@@ -92,20 +89,26 @@ class DocumentModel {
         (e) => e.name == d['status'],
         orElse: () => DocumentStatus.neverificat,
       ),
-      fileUrl: d['fileUrl'] ?? '',
-      fileType: d['fileType'] ?? 'pdf',
-      fileSize: d['fileSize'] ?? 0,
-      propertyId: d['propertyId'],
-      transactionId: d['transactionId'],
-      contractId: d['contractId'],
-      auctionId: d['auctionId'],
-      note: d['note'],
-      uploadedAt: (d['uploadedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      uploadedBy: d['uploadedBy'] ?? '',
+      fileUrl: d['fileUrl']?.toString() ?? '',
+      fileType: d['fileType']?.toString() ?? 'pdf',
+      fileSize: (d['fileSize'] as num?)?.toInt() ?? 0,
+      propertyId: d['propertyId']?.toString(),
+      transactionId: d['transactionId']?.toString(),
+      contractId: d['contractId']?.toString(),
+      auctionId: d['auctionId']?.toString(),
+      note: d['note']?.toString(),
+      uploadedAt: _parseDate(d['uploadedAt'] ?? d['createdAt']),
+      uploadedBy: d['uploadedBy']?.toString() ?? d['createdBy']?.toString() ?? '',
     );
   }
 
-  Map<String, dynamic> toFirestore() => {
+  static DateTime _parseDate(dynamic v) {
+    if (v == null) return DateTime.now();
+    if (v is DateTime) return v;
+    return DateTime.tryParse(v.toString()) ?? DateTime.now();
+  }
+
+  Map<String, dynamic> toJson() => {
     'denumire': denumire,
     'tip': tip.name,
     'status': status.name,
@@ -117,7 +120,6 @@ class DocumentModel {
     'contractId': contractId,
     'auctionId': auctionId,
     'note': note,
-    'uploadedAt': FieldValue.serverTimestamp(),
     'uploadedBy': uploadedBy,
   };
 }

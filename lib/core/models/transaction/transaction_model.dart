@@ -1,27 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum TransactionType {
-  vanzare,
-  cumparare,
-  inchiriere,
-  concesionare,
-  dareAdministrare,
-  dareFolosintaGratuita,
-  comodat,
-  schimbImobiliar,
-  transfer,
-  preluarePatrimoniu,
-  scoatereEvidenta,
-  modificareValoare,
+  vanzare, cumparare, inchiriere, concesionare,
+  dareAdministrare, dareFolosintaGratuita, comodat,
+  schimbImobiliar, transfer, preluarePatrimoniu,
+  scoatereEvidenta, modificareValoare,
 }
 
-enum TransactionStatus {
-  initiata,
-  aprobata,
-  inDerulare,
-  finalizata,
-  anulata,
-}
+enum TransactionStatus { initiata, aprobata, inDerulare, finalizata, anulata }
 
 extension TransactionTypeExt on TransactionType {
   String get label {
@@ -63,7 +47,6 @@ class TransactionModel {
   final String numarHcl;
   final DateTime dataTransactie;
   final TransactionStatus status;
-  final List<String> documentIds;
   final String? note;
   final DateTime createdAt;
   final String createdBy;
@@ -77,17 +60,15 @@ class TransactionModel {
     required this.numarHcl,
     required this.dataTransactie,
     required this.status,
-    required this.documentIds,
     this.note,
     required this.createdAt,
     required this.createdBy,
   });
 
-  factory TransactionModel.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+  factory TransactionModel.fromJson(Map<String, dynamic> d) {
     return TransactionModel(
-      id: doc.id,
-      propertyId: d['propertyId'] ?? '',
+      id: d['id']?.toString() ?? '',
+      propertyId: d['propertyId']?.toString() ?? '',
       propertyDenumire: d['propertyDenumire'] ?? '',
       tip: TransactionType.values.firstWhere(
         (e) => e.name == d['tip'],
@@ -95,29 +76,30 @@ class TransactionModel {
       ),
       descriere: d['descriere'] ?? '',
       numarHcl: d['numarHcl'] ?? '',
-      dataTransactie: (d['dataTransactie'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      dataTransactie: _parseDate(d['dataTransactie']),
       status: TransactionStatus.values.firstWhere(
         (e) => e.name == d['status'],
         orElse: () => TransactionStatus.initiata,
       ),
-      documentIds: List<String>.from(d['documentIds'] ?? []),
       note: d['note'],
-      createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: _parseDate(d['createdAt']),
       createdBy: d['createdBy'] ?? '',
     );
   }
 
-  Map<String, dynamic> toFirestore() => {
+  static DateTime _parseDate(dynamic v) {
+    if (v == null) return DateTime.now();
+    if (v is DateTime) return v;
+    return DateTime.tryParse(v.toString()) ?? DateTime.now();
+  }
+
+  Map<String, dynamic> toJson() => {
     'propertyId': propertyId,
     'propertyDenumire': propertyDenumire,
     'tip': tip.name,
     'descriere': descriere,
     'numarHcl': numarHcl,
-    'dataTransactie': Timestamp.fromDate(dataTransactie),
-    'status': status.name,
-    'documentIds': documentIds,
+    'dataTransactie': dataTransactie.toIso8601String(),
     'note': note,
-    'createdAt': FieldValue.serverTimestamp(),
-    'createdBy': createdBy,
   };
 }

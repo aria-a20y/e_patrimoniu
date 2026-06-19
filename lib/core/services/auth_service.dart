@@ -1,36 +1,28 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user/user_model.dart';
-import '../config/app_config.dart';
-import 'audit_service.dart';
+import 'api_service.dart';
 
 class AuthService {
   AuthService._();
 
   static final _auth = FirebaseAuth.instance;
-  static final _firestore = FirebaseFirestore.instance;
 
   // --- Utilizator curent ---
   static User? get currentUser => _auth.currentUser;
   static bool get isLoggedIn => _auth.currentUser != null;
   static Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  /// Obține modelul complet al utilizatorului curent
+  /// Obține modelul complet al utilizatorului curent din backend (PostgreSQL)
   static Future<UserModel?> getCurrentUserModel() async {
-    final user = _auth.currentUser;
-    if (user == null) return null;
     try {
-      final doc = await _firestore
-          .collection(AppConfig.colUsers)
-          .doc(user.uid)
-          .get();
-      if (doc.exists) return UserModel.fromFirestore(doc);
+      final data = await ApiService.get('/api/users/me');
+      return UserModel.fromJson(data as Map<String, dynamic>);
     } catch (e) {
       debugPrint('Error getting user model: $e');
+      return null;
     }
-    return null;
   }
 
   /// Obține rolul utilizatorului curent
@@ -49,13 +41,6 @@ class AuthService {
       final user = cred.user;
       if (user != null) {
         await _saveLocalUser(user);
-        await AuditService.log(
-          userId: user.uid,
-          userName: user.displayName ?? email,
-          actiune: AuditAction.autentificare,
-          entitate: 'Sesiune',
-          detalii: 'Autentificare reușită',
-        );
       }
       return user;
     } on FirebaseAuthException catch (e) {
@@ -63,7 +48,7 @@ class AuthService {
     }
   }
 
-  /// Înregistrare utilizator nou (doar de admin sau primul utilizator)
+  /// Înregistrare utilizator nou — trimis la backend care creează în Firebase Auth + PostgreSQL
   static Future<User?> register({
     required String email,
     required String password,
@@ -74,27 +59,25 @@ class AuthService {
     String? departament,
   }) async {
     try {
-      final cred = await _auth.createUserWithEmailAndPassword(
+      // Apelăm backend-ul care creează utilizatorul în Firebase Auth și PostgreSQL
+      await ApiService.post('/api/users/register', {
+        'email': email.trim(),
+        'password': password.trim(),
+        'firstName': firstName.trim(),
+        'lastName': lastName.trim(),
+        'phone': phone.trim(),
+        'role': role.name,
+        'departament': departament,
+      });
+
+      // Autentifică utilizatorul nou creat
+      final cred = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password.trim(),
       );
       final user = cred.user;
       if (user != null) {
-        final displayName = '$firstName $lastName'.trim();
-        await user.updateDisplayName(displayName);
-
-        // Creare document utilizator în Firestore
-        await _firestore.collection(AppConfig.colUsers).doc(user.uid).set({
-          'firstName': firstName.trim(),
-          'lastName': lastName.trim(),
-          'email': email.trim(),
-          'phone': phone.trim(),
-          'role': role.name,
-          'status': UserStatus.activ.name,
-          'departament': departament,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
+        await user.updateDisplayName('$firstName $lastName'.trim());
         await _saveLocalUser(user);
       }
       return user;
@@ -103,55 +86,22 @@ class AuthService {
     }
   }
 
-  /// Trimitere email resetare parolă (folosind domeniu propriu e-Patrimoniu)
   static Future<void> sendPasswordReset(String email) async {
     try {
-      final actionSettings = ActionCodeSettings(
-        url: 'https://epatrimoniu.ro/reset-password',
-        handleCodeInApp: false,
-      );
-      await _auth.sendPasswordResetEmail(
-        email: email.trim(),
-        actionCodeSettings: actionSettings,
-      );
+      await _auth.sendPasswordResetEmail(email: email.trim());
     } on FirebaseAuthException catch (e) {
-      // Fallback fără action settings dacă domeniul nu e configurat
-      try {
-        await _auth.sendPasswordResetEmail(email: email.trim());
-      } catch (_) {
-        throw Exception(_mapAuthError(e.code));
-      }
+      throw Exception(_mapAuthError(e.code));
     }
   }
 
-  /// Trimitere email verificare (cu branding e-Patrimoniu)
   static Future<void> sendEmailVerification() async {
     final user = _auth.currentUser;
     if (user != null && !user.emailVerified) {
-      try {
-        final actionSettings = ActionCodeSettings(
-          url: 'https://epatrimoniu.ro/verify-email',
-          handleCodeInApp: false,
-        );
-        await user.sendEmailVerification(actionSettings);
-      } catch (_) {
-        // Fallback fără action settings
-        await user.sendEmailVerification();
-      }
+      await user.sendEmailVerification();
     }
   }
 
   static Future<void> signOut() async {
-    final user = _auth.currentUser;
-    if (user != null) {
-      await AuditService.log(
-        userId: user.uid,
-        userName: user.displayName ?? user.email ?? '',
-        actiune: AuditAction.deconectare,
-        entitate: 'Sesiune',
-        detalii: 'Deconectare utilizator',
-      );
-    }
     await _auth.signOut();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
@@ -170,7 +120,7 @@ class AuthService {
     final user = _auth.currentUser;
     if (user == null) throw Exception('Utilizator neautentificat');
     await user.updateDisplayName('$firstName $lastName');
-    await _firestore.collection(AppConfig.colUsers).doc(user.uid).update({
+    await ApiService.put('/api/users/${user.uid}', {
       'firstName': firstName.trim(),
       'lastName': lastName.trim(),
       'phone': phone.trim(),
@@ -178,31 +128,17 @@ class AuthService {
     });
   }
 
-  /// Actualizare status utilizator (doar admin)
   static Future<void> updateUserStatus(String uid, UserStatus status) async {
-    await _firestore
-        .collection(AppConfig.colUsers)
-        .doc(uid)
-        .update({'status': status.name});
+    await ApiService.put('/api/users/$uid/status', {'status': status.name});
   }
 
-  /// Actualizare rol utilizator (doar admin)
   static Future<void> updateUserRole(String uid, UserRole role) async {
-    await _firestore
-        .collection(AppConfig.colUsers)
-        .doc(uid)
-        .update({'role': role.name});
+    await ApiService.put('/api/users/$uid/role', {'role': role.name});
   }
 
-  /// Obține toți utilizatorii (doar admin)
-  static Stream<List<UserModel>> getAllUsers() {
-    return _firestore
-        .collection(AppConfig.colUsers)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => UserModel.fromFirestore(doc))
-            .toList());
+  static Future<List<UserModel>> getAllUsers() async {
+    final data = await ApiService.get('/api/users');
+    return (data as List).map((e) => UserModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   // --- Private helpers ---

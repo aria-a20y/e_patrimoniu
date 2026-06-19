@@ -1,7 +1,5 @@
 import 'dart:typed_data';
 import 'dart:math';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../config/app_config.dart';
 
 enum ScanStatus { inAsteptare, procesare, finalizat, eroare }
 
@@ -14,7 +12,7 @@ class ScanResult {
   final String rawText;
   final ScanStatus status;
   final DateTime createdAt;
-  final bool verificatManual;
+  bool verificatManual;
 
   ScanResult({
     required this.id,
@@ -27,40 +25,11 @@ class ScanResult {
     required this.createdAt,
     required this.verificatManual,
   });
-
-  factory ScanResult.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
-    return ScanResult(
-      id: doc.id,
-      documentId: d['documentId'] ?? '',
-      propertyId: d['propertyId'],
-      extractedFields: Map<String, dynamic>.from(d['extractedFields'] ?? {}),
-      confidenceScore: (d['confidenceScore'] ?? 0).toDouble(),
-      rawText: d['rawText'] ?? '',
-      status: ScanStatus.values.firstWhere(
-        (e) => e.name == d['status'],
-        orElse: () => ScanStatus.finalizat,
-      ),
-      createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      verificatManual: d['verificatManual'] ?? false,
-    );
-  }
-
-  Map<String, dynamic> toFirestore() => {
-    'documentId': documentId,
-    'propertyId': propertyId,
-    'extractedFields': extractedFields,
-    'confidenceScore': confidenceScore,
-    'rawText': rawText,
-    'status': status.name,
-    'createdAt': FieldValue.serverTimestamp(),
-    'verificatManual': verificatManual,
-  };
 }
 
 class ScanService {
-  static final _firestore = FirebaseFirestore.instance;
-  static final _col = _firestore.collection(AppConfig.colScanTasks);
+  // Stocare in-memory (feature demo/OCR mock — nu necesită persistență server)
+  static final List<ScanResult> _store = [];
   static final _rng = Random();
 
   /// Procesează documentul și extrage câmpuri (Mock OCR realist)
@@ -77,7 +46,7 @@ class ScanService {
     final confidence = 0.75 + _rng.nextDouble() * 0.22; // 75-97%
 
     final result = ScanResult(
-      id: '',
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       documentId: documentId,
       propertyId: propertyId,
       extractedFields: extracted,
@@ -88,9 +57,8 @@ class ScanService {
       verificatManual: false,
     );
 
-    final ref = await _col.add(result.toFirestore());
-    final doc = await ref.get();
-    return ScanResult.fromFirestore(doc);
+    _store.add(result);
+    return result;
   }
 
   static Map<String, dynamic> _mockExtraction(String filePath) {
@@ -165,26 +133,25 @@ a cadastrului și publicității imobiliare, republicată.
   }
 
   static Future<void> markVerified(String id) async {
-    await _col.doc(id).update({'verificatManual': true});
+    final r = _store.where((e) => e.id == id).firstOrNull;
+    if (r != null) r.verificatManual = true;
   }
 
   static Future<void> updateFields(String id, Map<String, dynamic> fields) async {
-    await _col.doc(id).update({'extractedFields': fields, 'verificatManual': true});
+    final r = _store.where((e) => e.id == id).firstOrNull;
+    if (r != null) {
+      r.extractedFields.addAll(fields);
+      r.verificatManual = true;
+    }
   }
 
   static Stream<List<ScanResult>> getAll() {
-    return _col
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((s) => s.docs.map((d) => ScanResult.fromFirestore(d)).toList());
+    final sorted = List<ScanResult>.from(_store)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return Stream.value(sorted);
   }
 
   static Future<ScanResult?> getByDocument(String documentId) async {
-    final snap = await _col
-        .where('documentId', isEqualTo: documentId)
-        .limit(1)
-        .get();
-    if (snap.docs.isEmpty) return null;
-    return ScanResult.fromFirestore(snap.docs.first);
+    return _store.where((e) => e.documentId == documentId).firstOrNull;
   }
 }

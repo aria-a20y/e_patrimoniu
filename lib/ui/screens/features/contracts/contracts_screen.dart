@@ -15,6 +15,17 @@ class ContractsScreen extends StatefulWidget {
 class _ContractsScreenState extends State<ContractsScreen> {
   String _searchQuery = '';
   ContractStatus? _filterStatus;
+  Future<List<ContractModel>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = ContractService.getAll();
+  }
+
+  void _loadData() {
+    setState(() => _future = ContractService.getAll());
+  }
 
   Color _statusColor(ContractStatus s) {
     switch (s) {
@@ -35,11 +46,12 @@ class _ContractsScreenState extends State<ContractsScreen> {
         children: [
           _buildFiltersBar(),
           Expanded(
-            child: StreamBuilder<List<ContractModel>>(
-              stream: ContractService.getAll(),
+            child: FutureBuilder<List<ContractModel>>(
+              future: _future,
               builder: (context, snap) {
-                if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-                var contracts = snap.data!;
+                if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                if (snap.hasError) return Center(child: Text('Eroare: ${snap.error}'));
+                var contracts = snap.data ?? [];
                 if (_filterStatus != null) contracts = contracts.where((c) => c.status == _filterStatus).toList();
                 if (_searchQuery.isNotEmpty) {
                   final q = _searchQuery.toLowerCase();
@@ -171,8 +183,8 @@ class _ContractsScreenState extends State<ContractsScreen> {
           itemBuilder: (_) => ContractStatus.values.where((s) => s != c.status)
             .map((s) => PopupMenuItem(value: s, child: Text('→ ${s.label}'))).toList(),
           onSelected: (newStatus) async {
-            final user = await AuthService.getCurrentUserModel();
-            await ContractService.updateStatus(c.id, newStatus, userId: user?.uid ?? '', userName: user?.fullName ?? '');
+            await ContractService.updateStatus(c.id, newStatus);
+            _loadData();
           },
         )),
       ]),
@@ -254,7 +266,8 @@ class _ContractsScreenState extends State<ContractsScreen> {
                 valoare: double.tryParse(valoareCtl.text) ?? 0, valutaMoneda: 'RON',
                 status: ContractStatus.activ, createdAt: DateTime.now(), createdBy: user?.uid ?? '',
               );
-              await ContractService.create(c, userId: user?.uid ?? '', userName: user?.fullName ?? '');
+              await ContractService.create(c);
+              _loadData();
             },
             child: const Text('Adaugă'),
           ),

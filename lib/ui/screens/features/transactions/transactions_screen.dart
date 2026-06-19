@@ -16,6 +16,17 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   String _searchQuery = '';
   TransactionStatus? _filterStatus;
   TransactionType? _filterTip;
+  Future<List<TransactionModel>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = TransactionService.getAll();
+  }
+
+  void _loadData() {
+    setState(() => _future = TransactionService.getAll());
+  }
 
   Color _statusColor(TransactionStatus s) {
     switch (s) {
@@ -35,11 +46,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         children: [
           _buildFiltersBar(),
           Expanded(
-            child: StreamBuilder<List<TransactionModel>>(
-              stream: TransactionService.getAll(),
+            child: FutureBuilder<List<TransactionModel>>(
+              future: _future,
               builder: (context, snap) {
-                if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-                var txs = snap.data!;
+                if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                if (snap.hasError) return Center(child: Text('Eroare: ${snap.error}'));
+                var txs = snap.data ?? [];
                 if (_filterStatus != null) txs = txs.where((t) => t.status == _filterStatus).toList();
                 if (_filterTip != null) txs = txs.where((t) => t.tip == _filterTip).toList();
                 if (_searchQuery.isNotEmpty) {
@@ -184,8 +196,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       .toList(),
                     onSelected: (statusName) async {
                       final newStatus = TransactionStatus.values.firstWhere((s) => s.name == statusName);
-                      final user = await AuthService.getCurrentUserModel();
-                      await TransactionService.updateStatus(t.id, newStatus, userId: user?.uid ?? '', userName: user?.fullName ?? '');
+                      await TransactionService.updateStatus(t.id, newStatus);
+                      _loadData();
                     },
                   ),
                 ]),
@@ -257,10 +269,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 final tx = TransactionModel(
                   id: '', propertyId: 'unknown', propertyDenumire: propCtl.text.trim(),
                   tip: tip, descriere: descrCtl.text.trim(), numarHcl: hclCtl.text.trim(),
-                  dataTransactie: data, status: TransactionStatus.initiata, documentIds: [],
+                  dataTransactie: data, status: TransactionStatus.initiata,
                   createdAt: DateTime.now(), createdBy: user?.uid ?? '',
                 );
-                await TransactionService.create(tx, userId: user?.uid ?? '', userName: user?.fullName ?? '');
+                await TransactionService.create(tx);
+                _loadData();
               },
               child: const Text('Adaugă'),
             ),

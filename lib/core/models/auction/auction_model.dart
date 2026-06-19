@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum AuctionType { vanzare, inchiriere, concesionare }
 enum AuctionStatus { draft, publicata, activa, inchisa, atribuita, anulata, contestata }
 
@@ -45,7 +43,6 @@ class AuctionModel {
   final String? transactionId;
   final String? contractId;
   final String? descriere;
-  final List<String> documentIds;
   final DateTime createdAt;
   final String createdBy;
 
@@ -67,16 +64,14 @@ class AuctionModel {
     this.transactionId,
     this.contractId,
     this.descriere,
-    required this.documentIds,
     required this.createdAt,
     required this.createdBy,
   });
 
-  factory AuctionModel.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+  factory AuctionModel.fromJson(Map<String, dynamic> d) {
     return AuctionModel(
-      id: doc.id,
-      propertyId: d['propertyId'] ?? '',
+      id: d['id']?.toString() ?? '',
+      propertyId: d['propertyId']?.toString() ?? '',
       propertyDenumire: d['propertyDenumire'] ?? '',
       titlu: d['titlu'] ?? '',
       tipAtribuire: AuctionType.values.firstWhere(
@@ -86,25 +81,32 @@ class AuctionModel {
       pretPornire: (d['pretPornire'] ?? 0).toDouble(),
       pasLicitare: (d['pasLicitare'] ?? 0).toDouble(),
       garantieParticipare: (d['garantieParticipare'] ?? 0).toDouble(),
-      dataInceput: (d['dataInceput'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      dataFinal: (d['dataFinal'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      dataInceput: _parseDate(d['dataInceput']),
+      dataFinal: _parseDate(d['dataFinal']),
       status: AuctionStatus.values.firstWhere(
         (e) => e.name == d['status'],
         orElse: () => AuctionStatus.draft,
       ),
       castigatorId: d['castigatorId'],
       castigatorNume: d['castigatorNume'],
-      ofertaCastigatoare: d['ofertaCastigatoare']?.toDouble(),
-      transactionId: d['transactionId'],
-      contractId: d['contractId'],
+      ofertaCastigatoare: d['ofertaCastigatoare'] != null
+          ? (d['ofertaCastigatoare']).toDouble()
+          : null,
+      transactionId: d['transactionId']?.toString(),
+      contractId: d['contractId']?.toString(),
       descriere: d['descriere'],
-      documentIds: List<String>.from(d['documentIds'] ?? []),
-      createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: _parseDate(d['createdAt']),
       createdBy: d['createdBy'] ?? '',
     );
   }
 
-  Map<String, dynamic> toFirestore() => {
+  static DateTime _parseDate(dynamic v) {
+    if (v == null) return DateTime.now();
+    if (v is DateTime) return v;
+    return DateTime.tryParse(v.toString()) ?? DateTime.now();
+  }
+
+  Map<String, dynamic> toJson() => {
     'propertyId': propertyId,
     'propertyDenumire': propertyDenumire,
     'titlu': titlu,
@@ -112,18 +114,9 @@ class AuctionModel {
     'pretPornire': pretPornire,
     'pasLicitare': pasLicitare,
     'garantieParticipare': garantieParticipare,
-    'dataInceput': Timestamp.fromDate(dataInceput),
-    'dataFinal': Timestamp.fromDate(dataFinal),
-    'status': status.name,
-    'castigatorId': castigatorId,
-    'castigatorNume': castigatorNume,
-    'ofertaCastigatoare': ofertaCastigatoare,
-    'transactionId': transactionId,
-    'contractId': contractId,
+    'dataInceput': dataInceput.toIso8601String(),
+    'dataFinal': dataFinal.toIso8601String(),
     'descriere': descriere,
-    'documentIds': documentIds,
-    'createdAt': FieldValue.serverTimestamp(),
-    'createdBy': createdBy,
   };
 }
 
@@ -150,29 +143,19 @@ class BidModel {
     this.motivRespingere,
   });
 
-  factory BidModel.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+  factory BidModel.fromJson(Map<String, dynamic> d) {
     return BidModel(
-      id: doc.id,
-      auctionId: d['auctionId'] ?? '',
+      id: d['id']?.toString() ?? '',
+      auctionId: d['auctionId']?.toString() ?? '',
       participantId: d['participantId'] ?? '',
       participantNume: d['participantNume'] ?? '',
       valoare: (d['valoare'] ?? 0).toDouble(),
-      dataOra: (d['dataOra'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      dataOra: DateTime.tryParse(d['dataOra']?.toString() ?? '') ?? DateTime.now(),
       validata: d['validata'] ?? false,
       respinsa: d['respinsa'] ?? false,
       motivRespingere: d['motivRespingere'],
     );
   }
 
-  Map<String, dynamic> toFirestore() => {
-    'auctionId': auctionId,
-    'participantId': participantId,
-    'participantNume': participantNume,
-    'valoare': valoare,
-    'dataOra': FieldValue.serverTimestamp(),
-    'validata': validata,
-    'respinsa': respinsa,
-    'motivRespingere': motivRespingere,
-  };
+  Map<String, dynamic> toJson() => {'valoare': valoare};
 }
