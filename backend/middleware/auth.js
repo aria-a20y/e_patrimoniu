@@ -1,14 +1,15 @@
 'use strict';
 
-const { auth, db } = require('../firebase');
+const { auth } = require('../firebase');
+const { pool } = require('../db');
 
 /**
  * verifyToken — middleware
- * Verifies the Firebase ID token from `Authorization: Bearer <token>`,
- * fetches the user document from Firestore, and attaches:
+ * Verifică Firebase ID token din `Authorization: Bearer <token>`,
+ * citește utilizatorul din PostgreSQL și atașează:
  *   req.uid       — Firebase UID
  *   req.userRole  — 'administrator' | 'functionar' | 'extern'
- *   req.userName  — display name or email
+ *   req.userName  — nume complet sau email
  */
 async function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -22,20 +23,25 @@ async function verifyToken(req, res, next) {
     const decoded = await auth.verifyIdToken(token, true /* checkRevoked */);
     req.uid = decoded.uid;
 
-    // Fetch role and status from Firestore (source of truth for RBAC)
-    const userSnap = await db.collection('users').doc(decoded.uid).get();
-    if (!userSnap.exists) {
+    // Citește rolul și statusul din PostgreSQL (sursa de adevăr pentru RBAC)
+    const { rows } = await pool.query(
+      'SELECT "firstName", "lastName", email, role, status FROM users WHERE uid = $1',
+      [decoded.uid]
+    );
+
+    if (rows.length === 0) {
       return res.status(403).json({ error: 'Utilizator negăsit în sistem.' });
     }
 
-    const userData = userSnap.data();
-    if (userData.status !== 'activ') {
+    const user = rows[0];
+
+    if (user.status !== 'activ') {
       return res.status(403).json({ error: 'Contul este dezactivat sau suspendat.' });
     }
 
-    req.userRole = userData.role;  // 'administrator' | 'functionar' | 'extern'
-    req.userName = userData.firstName
-      ? `${userData.firstName} ${userData.lastName}`.trim()
+    req.userRole = user.role;
+    req.userName = user.firstName
+      ? `${user.firstName} ${user.lastName}`.trim()
       : (decoded.email ?? decoded.uid);
 
     next();
@@ -52,8 +58,7 @@ async function verifyToken(req, res, next) {
 }
 
 /**
- * requireRole(...roles) — factory for role-guard middleware
- * Usage: router.post('/...', verifyToken, requireRole('administrator'), handler)
+ * requireRole(...roles) — factory pentru middleware de guard pe rol
  */
 function requireRole(...roles) {
   return (req, res, next) => {
@@ -66,7 +71,7 @@ function requireRole(...roles) {
   };
 }
 
-const requireAdmin         = requireRole('administrator');
-const requireAdminOrStaff  = requireRole('administrator', 'functionar');
+const requireAdmin        = requireRole('administrator');
+const requireAdminOrStaff = requireRole('administrator', 'functionar');
 
 module.exports = { verifyToken, requireRole, requireAdmin, requireAdminOrStaff };
