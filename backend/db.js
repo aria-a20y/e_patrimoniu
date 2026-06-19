@@ -35,7 +35,7 @@ async function initDb() {
     await pool.query(schema);
     console.log('[DB] Schema inițializată cu succes.');
   } catch (err) {
-    console.error('[DB] Eroare la inițializarea schemei:', err.message);
+    console.error('[DB] Eroare la inițializarea schemei:', err.message || err.code || JSON.stringify(err));
     // Nu oprim serverul — poate schema există deja parțial
   }
 }
