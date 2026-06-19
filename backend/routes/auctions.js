@@ -1,20 +1,37 @@
 'use strict';
 
 const express = require('express');
-const { db } = require('../firebase');
+const { pool } = require('../db');
 const { verifyToken, requireAdmin, requireAdminOrStaff } = require('../middleware/auth');
 const { writeAuditLog } = require('../utils/audit');
-const { FieldValue } = require('firebase-admin/firestore');
 
 const router = express.Router();
+
+const AUCTION_SELECT = `
+  SELECT id, property_id AS "propertyId", property_denumire AS "propertyDenumire",
+         titlu, tip_atribuire AS "tipAtribuire",
+         pret_pornire AS "pretPornire", pas_licitare AS "pasLicitare",
+         garantie_participare AS "garantieParticipare",
+         data_inceput AS "dataInceput", data_final AS "dataFinal",
+         status, castigator_id AS "castigatorId", castigator_nume AS "castigatorNume",
+         oferta_castigatoare AS "ofertaCastigatoare",
+         transaction_id AS "transactionId", contract_id AS "contractId",
+         descriere, created_at AS "createdAt", created_by AS "createdBy"
+  FROM auctions
+`;
 
 // GET /api/auctions
 router.get('/', verifyToken, async (req, res) => {
   try {
-    let q = db.collection('auctions').orderBy('createdAt', 'desc');
-    if (req.query.status) q = q.where('status', '==', req.query.status);
-    const snap = await q.get();
-    res.json(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    let query = AUCTION_SELECT;
+    const params = [];
+    if (req.query.status) {
+      params.push(req.query.status);
+      query += ` WHERE status = $${params.length}`;
+    }
+    query += ' ORDER BY created_at DESC';
+    const { rows } = await pool.query(query, params);
+    res.json(rows);
   } catch (err) {
     console.error('GET /auctions:', err);
     res.status(500).json({ error: 'Eroare server.' });
@@ -24,15 +41,18 @@ router.get('/', verifyToken, async (req, res) => {
 // GET /api/auctions/:id
 router.get('/:id', verifyToken, async (req, res) => {
   try {
-    const doc = await db.collection('auctions').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Licitație negăsită.' });
-    res.json({ id: doc.id, ...doc.data() });
+    const { rows } = await pool.query(
+      AUCTION_SELECT + ' WHERE id = $1',
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Licitație negăsită.' });
+    res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Eroare server.' });
   }
 });
 
-// POST /api/auctions — admin sau funcționar
+// POST /api/auctions
 router.post('/', verifyToken, requireAdminOrStaff, async (req, res) => {
   const { propertyId, propertyDenumire, titlu, tipAtribuire,
           pretPornire, pasLicitare, garantieParticipare,
@@ -51,34 +71,31 @@ router.post('/', verifyToken, requireAdminOrStaff, async (req, res) => {
   const start = new Date(dataInceput);
   const end   = new Date(dataFinal);
   if (isNaN(start) || isNaN(end) || end <= start) {
-    return res.status(400).json({ error: 'Interval de date invalid (dataFinal trebuie să fie după dataInceput).' });
+    return res.status(400).json({ error: 'Interval de date invalid.' });
   }
 
   try {
-    const ref = await db.collection('auctions').add({
-      propertyId, propertyDenumire: propertyDenumire ?? '',
-      titlu, tipAtribuire,
-      pretPornire: Number(pretPornire),
-      pasLicitare: Number(pasLicitare),
-      garantieParticipare: Number(garantieParticipare),
-      dataInceput: start,
-      dataFinal: end,
-      status: 'draft',
-      castigatorId: null, castigatorNume: null, ofertaCastigatoare: null,
-      transactionId: null, contractId: null,
-      descriere: descriere ?? null,
-      documentIds: [],
-      createdAt: FieldValue.serverTimestamp(),
-      createdBy: req.uid,
-    });
+    const { rows } = await pool.query(
+      `INSERT INTO auctions
+         (property_id, property_denumire, titlu, tip_atribuire, pret_pornire, pas_licitare,
+          garantie_participare, data_inceput, data_final, status, descriere, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11)
+       RETURNING id`,
+      [
+        propertyId, propertyDenumire ?? '', titlu, tipAtribuire,
+        Number(pretPornire), Number(pasLicitare), Number(garantieParticipare),
+        start, end, descriere ?? null, req.uid,
+      ]
+    );
 
+    const id = rows[0].id;
     await writeAuditLog({
       userId: req.uid, userName: req.userName,
-      actiune: 'creareLicitatie', entitate: 'Licitatie', entitateId: ref.id,
+      actiune: 'creareLicitatie', entitate: 'Licitatie', entitateId: id,
       detalii: `Licitație creată: ${titlu}`,
     });
 
-    res.status(201).json({ id: ref.id });
+    res.status(201).json({ id });
   } catch (err) {
     console.error('POST /auctions:', err);
     res.status(500).json({ error: 'Eroare server.' });
@@ -95,10 +112,12 @@ router.put('/:id/status', verifyToken, requireAdminOrStaff, async (req, res) => 
   }
 
   try {
-    const doc = await db.collection('auctions').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Licitație negăsită.' });
+    const result = await pool.query(
+      'UPDATE auctions SET status = $1 WHERE id = $2',
+      [status, req.params.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Licitație negăsită.' });
 
-    await doc.ref.update({ status });
     await writeAuditLog({
       userId: req.uid, userName: req.userName,
       actiune: 'actualizareStatus', entitate: 'Licitatie', entitateId: req.params.id,
@@ -122,18 +141,24 @@ router.put('/:id/winner', verifyToken, requireAdmin, async (req, res) => {
   }
 
   try {
-    const doc = await db.collection('auctions').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Licitație negăsită.' });
-    if (!['activa', 'inchisa'].includes(doc.data().status)) {
-      return res.status(409).json({ error: 'Câștigătorul poate fi desemnat doar pentru licitații active sau închise.' });
+    const { rows: existing } = await pool.query(
+      'SELECT status FROM auctions WHERE id = $1',
+      [req.params.id]
+    );
+    if (existing.length === 0) return res.status(404).json({ error: 'Licitație negăsită.' });
+    if (!['activa', 'inchisa'].includes(existing[0].status)) {
+      return res.status(409).json({
+        error: 'Câștigătorul poate fi desemnat doar pentru licitații active sau închise.',
+      });
     }
 
-    await doc.ref.update({
-      status: 'atribuita',
-      castigatorId: winnerId,
-      castigatorNume: winnerName,
-      ofertaCastigatoare: winningBid,
-    });
+    await pool.query(
+      `UPDATE auctions
+       SET status = 'atribuita', castigator_id = $1, castigator_nume = $2, oferta_castigatoare = $3
+       WHERE id = $4`,
+      [winnerId, winnerName, winningBid, req.params.id]
+    );
+
     await writeAuditLog({
       userId: req.uid, userName: req.userName,
       actiune: 'actualizareStatus', entitate: 'Licitatie', entitateId: req.params.id,
@@ -149,17 +174,20 @@ router.put('/:id/winner', verifyToken, requireAdmin, async (req, res) => {
 // GET /api/auctions/:id/bids
 router.get('/:id/bids', verifyToken, async (req, res) => {
   try {
-    const snap = await db.collection('bids')
-      .where('auctionId', '==', req.params.id)
-      .orderBy('dataOra', 'desc')
-      .get();
-    res.json(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const { rows } = await pool.query(
+      `SELECT id, auction_id AS "auctionId", participant_id AS "participantId",
+              participant_nume AS "participantNume", valoare,
+              data_ora AS "dataOra", validata, respinsa, motiv_respingere AS "motivRespingere"
+       FROM bids WHERE auction_id = $1 ORDER BY data_ora DESC`,
+      [req.params.id]
+    );
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'Eroare server.' });
   }
 });
 
-// POST /api/auctions/:id/bids — F-07 fix: full business rule validation
+// POST /api/auctions/:id/bids
 router.post('/:id/bids', verifyToken, async (req, res) => {
   const auctionId = req.params.id;
   const { valoare } = req.body;
@@ -169,59 +197,50 @@ router.post('/:id/bids', verifyToken, async (req, res) => {
   }
 
   try {
-    const auctionSnap = await db.collection('auctions').doc(auctionId).get();
-    if (!auctionSnap.exists) {
-      return res.status(404).json({ error: 'Licitație negăsită.' });
-    }
-    const auction = auctionSnap.data();
+    const { rows: aRows } = await pool.query(
+      'SELECT status, pret_pornire, pas_licitare, data_inceput, data_final FROM auctions WHERE id = $1',
+      [auctionId]
+    );
+    if (aRows.length === 0) return res.status(404).json({ error: 'Licitație negăsită.' });
 
-    // Validate auction is active
+    const auction = aRows[0];
+
     if (auction.status !== 'activa') {
       return res.status(409).json({ error: `Licitația nu este activă. Status: ${auction.status}` });
     }
 
-    // Validate auction window
     const now = new Date();
-    if (now < auction.dataInceput.toDate() || now > auction.dataFinal.toDate()) {
+    if (now < new Date(auction.data_inceput) || now > new Date(auction.data_final)) {
       return res.status(409).json({ error: 'Nu sunteți în intervalul de depunere a ofertelor.' });
     }
 
-    // Validate minimum price
-    if (valoare < auction.pretPornire) {
+    if (valoare < Number(auction.pret_pornire)) {
       return res.status(400).json({
-        error: `Oferta (${valoare} RON) este sub prețul de pornire (${auction.pretPornire} RON).`,
+        error: `Oferta (${valoare} RON) este sub prețul de pornire (${auction.pret_pornire} RON).`,
       });
     }
 
-    // Validate bid increment
-    const overshoot = (valoare - auction.pretPornire) % auction.pasLicitare;
+    const overshoot = (valoare - Number(auction.pret_pornire)) % Number(auction.pas_licitare);
     if (Math.abs(overshoot) > 0.01) {
       return res.status(400).json({
-        error: `Oferta trebuie să respecte pasul de licitare de ${auction.pasLicitare} RON.`,
+        error: `Oferta trebuie să respecte pasul de licitare de ${auction.pas_licitare} RON.`,
       });
     }
 
-    // Verify caller is registered participant
-    const partSnap = await db.collection('auction_participants')
-      .where('auctionId', '==', auctionId)
-      .where('userId', '==', req.uid)
-      .limit(1)
-      .get();
-    if (partSnap.empty) {
+    // Verifică participantul înregistrat
+    const { rows: pRows } = await pool.query(
+      'SELECT id FROM auction_participants WHERE auction_id = $1 AND user_id = $2 LIMIT 1',
+      [auctionId, req.uid]
+    );
+    if (pRows.length === 0) {
       return res.status(403).json({ error: 'Nu ești înregistrat ca participant la această licitație.' });
     }
 
-    // Write bid with server-side timestamp and verified participantId
-    const bidRef = await db.collection('bids').add({
-      auctionId,
-      participantId: req.uid,        // always from verified token, never from body
-      participantNume: req.userName,
-      valoare,
-      dataOra: FieldValue.serverTimestamp(),
-      validata: false,
-      respinsa: false,
-      motivRespingere: null,
-    });
+    const { rows: bidRows } = await pool.query(
+      `INSERT INTO bids (auction_id, participant_id, participant_nume, valoare)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [auctionId, req.uid, req.userName, valoare]
+    );
 
     await writeAuditLog({
       userId: req.uid, userName: req.userName,
@@ -229,7 +248,7 @@ router.post('/:id/bids', verifyToken, async (req, res) => {
       detalii: `Ofertă depusă: ${valoare.toFixed(2)} RON`,
     });
 
-    res.status(201).json({ id: bidRef.id });
+    res.status(201).json({ id: bidRows[0].id });
   } catch (err) {
     console.error('POST /auctions/:id/bids:', err);
     res.status(500).json({ error: 'Eroare server.' });

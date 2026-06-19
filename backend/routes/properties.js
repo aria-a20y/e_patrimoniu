@@ -1,10 +1,9 @@
 'use strict';
 
 const express = require('express');
-const { db } = require('../firebase');
+const { pool } = require('../db');
 const { verifyToken, requireAdmin, requireAdminOrStaff } = require('../middleware/auth');
 const { writeAuditLog } = require('../utils/audit');
-const { FieldValue } = require('firebase-admin/firestore');
 
 const router = express.Router();
 
@@ -15,10 +14,23 @@ const VALID_STATUSES = ['activ', 'inactiv', 'scosEvidenta', 'inLitigiu'];
 // GET /api/properties
 router.get('/', verifyToken, async (req, res) => {
   try {
-    let q = db.collection('properties').orderBy('createdAt', 'desc');
-    if (req.query.tip) q = q.where('tip', '==', req.query.tip);
-    const snap = await q.get();
-    res.json(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    let query = `
+      SELECT id, denumire, tip, adresa, localitate, domeniu_juridic AS "domeniuJuridic",
+             numar_cadastral AS "numarCadastral", numar_carte_f AS "numarCarteF",
+             suprafata, valoare_inventar AS "valoareInventar", destinatie, status,
+             descriere, image_url AS "imageUrl", created_at AS "createdAt",
+             updated_at AS "updatedAt", created_by AS "createdBy"
+      FROM properties
+    `;
+    const params = [];
+    if (req.query.tip) {
+      params.push(req.query.tip);
+      query += ` WHERE tip = $${params.length}`;
+    }
+    query += ' ORDER BY created_at DESC';
+
+    const { rows } = await pool.query(query, params);
+    res.json(rows);
   } catch (err) {
     console.error('GET /properties:', err);
     res.status(500).json({ error: 'Eroare server.' });
@@ -28,9 +40,17 @@ router.get('/', verifyToken, async (req, res) => {
 // GET /api/properties/:id
 router.get('/:id', verifyToken, async (req, res) => {
   try {
-    const doc = await db.collection('properties').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Bun negăsit.' });
-    res.json({ id: doc.id, ...doc.data() });
+    const { rows } = await pool.query(
+      `SELECT id, denumire, tip, adresa, localitate, domeniu_juridic AS "domeniuJuridic",
+              numar_cadastral AS "numarCadastral", numar_carte_f AS "numarCarteF",
+              suprafata, valoare_inventar AS "valoareInventar", destinatie, status,
+              descriere, image_url AS "imageUrl", created_at AS "createdAt",
+              updated_at AS "updatedAt", created_by AS "createdBy"
+       FROM properties WHERE id = $1`,
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Bun negăsit.' });
+    res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Eroare server.' });
   }
@@ -42,7 +62,6 @@ router.post('/', verifyToken, requireAdminOrStaff, async (req, res) => {
           numarCadastral, numarCarteF, suprafata, valoareInventar,
           destinatie, status, descriere } = req.body;
 
-  // Input validation
   if (!denumire || !tip || !adresa || !localitate || !domeniuJuridic ||
       !numarCadastral || !numarCarteF || suprafata == null || valoareInventar == null || !destinatie) {
     return res.status(400).json({ error: 'Câmpuri obligatorii lipsă.' });
@@ -60,28 +79,27 @@ router.post('/', verifyToken, requireAdminOrStaff, async (req, res) => {
     return res.status(400).json({ error: 'Valoarea de inventar trebuie să fie un număr pozitiv.' });
   }
 
-  try {
-    const ref = await db.collection('properties').add({
-      denumire, tip, adresa, localitate, domeniuJuridic,
-      numarCadastral, numarCarteF,
-      suprafata: Number(suprafata),
-      valoareInventar: Number(valoareInventar),
-      destinatie,
-      status: VALID_STATUSES.includes(status) ? status : 'activ',
-      descriere: descriere ?? null,
-      imageUrl: null,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-      createdBy: req.uid,
-    });
+  const effectiveStatus = VALID_STATUSES.includes(status) ? status : 'activ';
 
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO properties
+         (denumire, tip, adresa, localitate, domeniu_juridic, numar_cadastral, numar_carte_f,
+          suprafata, valoare_inventar, destinatie, status, descriere, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       RETURNING id`,
+      [denumire, tip, adresa, localitate, domeniuJuridic, numarCadastral, numarCarteF,
+       suprafata, valoareInventar, destinatie, effectiveStatus, descriere ?? null, req.uid]
+    );
+
+    const id = rows[0].id;
     await writeAuditLog({
       userId: req.uid, userName: req.userName,
-      actiune: 'adaugare', entitate: 'BunImobiliar', entitateId: ref.id,
+      actiune: 'adaugare', entitate: 'BunImobiliar', entitateId: id,
       detalii: `Bun adăugat: ${denumire} (${tip})`,
     });
 
-    res.status(201).json({ id: ref.id });
+    res.status(201).json({ id });
   } catch (err) {
     console.error('POST /properties:', err);
     res.status(500).json({ error: 'Eroare server.' });
@@ -92,25 +110,47 @@ router.post('/', verifyToken, requireAdminOrStaff, async (req, res) => {
 router.put('/:id', verifyToken, requireAdminOrStaff, async (req, res) => {
   const allowed = ['denumire', 'adresa', 'localitate', 'suprafata',
                    'valoareInventar', 'destinatie', 'status', 'descriere', 'imageUrl'];
-  const updates = {};
-  for (const key of allowed) {
-    if (req.body[key] !== undefined) updates[key] = req.body[key];
-  }
-  updates.updatedAt = FieldValue.serverTimestamp();
 
-  if (updates.status && !VALID_STATUSES.includes(updates.status)) {
-    return res.status(400).json({ error: `Status invalid: ${updates.status}` });
+  // Map camelCase → snake_case pentru coloanele PostgreSQL
+  const colMap = {
+    denumire: 'denumire', adresa: 'adresa', localitate: 'localitate',
+    suprafata: 'suprafata', valoareInventar: 'valoare_inventar',
+    destinatie: 'destinatie', status: 'status', descriere: 'descriere',
+    imageUrl: 'image_url',
+  };
+
+  const setClauses = [];
+  const params = [];
+
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) {
+      if (key === 'status' && !VALID_STATUSES.includes(req.body[key])) {
+        return res.status(400).json({ error: `Status invalid: ${req.body[key]}` });
+      }
+      params.push(req.body[key]);
+      setClauses.push(`${colMap[key]} = $${params.length}`);
+    }
   }
+
+  if (setClauses.length === 0) {
+    return res.status(400).json({ error: 'Niciun câmp de actualizat.' });
+  }
+
+  params.push(new Date()); // updated_at
+  setClauses.push(`updated_at = $${params.length}`);
+  params.push(req.params.id); // WHERE id
 
   try {
-    const doc = await db.collection('properties').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Bun negăsit.' });
+    const result = await pool.query(
+      `UPDATE properties SET ${setClauses.join(', ')} WHERE id = $${params.length} RETURNING id`,
+      params
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Bun negăsit.' });
 
-    await doc.ref.update(updates);
     await writeAuditLog({
       userId: req.uid, userName: req.userName,
       actiune: 'modificare', entitate: 'BunImobiliar', entitateId: req.params.id,
-      detalii: `Bun actualizat: ${Object.keys(updates).filter(k => k !== 'updatedAt').join(', ')}`,
+      detalii: `Bun actualizat: ${Object.keys(req.body).filter(k => allowed.includes(k)).join(', ')}`,
     });
     res.json({ success: true });
   } catch (err) {
@@ -119,20 +159,19 @@ router.put('/:id', verifyToken, requireAdminOrStaff, async (req, res) => {
   }
 });
 
-// DELETE /api/properties/:id — admin only (soft delete via status)
+// DELETE /api/properties/:id — soft delete (status = scosEvidenta)
 router.delete('/:id', verifyToken, requireAdmin, async (req, res) => {
   try {
-    const doc = await db.collection('properties').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Bun negăsit.' });
+    const result = await pool.query(
+      `UPDATE properties SET status = 'scosEvidenta', updated_at = NOW() WHERE id = $1`,
+      [req.params.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Bun negăsit.' });
 
-    await doc.ref.update({
-      status: 'scosEvidenta',
-      updatedAt: FieldValue.serverTimestamp(),
-    });
     await writeAuditLog({
       userId: req.uid, userName: req.userName,
       actiune: 'stergere', entitate: 'BunImobiliar', entitateId: req.params.id,
-      detalii: `Bun scos din evidență`,
+      detalii: 'Bun scos din evidență',
     });
     res.json({ success: true });
   } catch (err) {

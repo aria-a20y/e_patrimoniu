@@ -1,19 +1,20 @@
 'use strict';
 
 const express = require('express');
-const { db, auth } = require('../firebase');
+const { auth } = require('../firebase');
+const { pool } = require('../db');
 const { verifyToken, requireAdmin } = require('../middleware/auth');
 const { writeAuditLog } = require('../utils/audit');
-const { FieldValue } = require('firebase-admin/firestore');
 
 const router = express.Router();
 
 // GET /api/users — admin only
 router.get('/', verifyToken, requireAdmin, async (req, res) => {
   try {
-    const snap = await db.collection('users').orderBy('createdAt', 'desc').get();
-    const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    res.json(users);
+    const { rows } = await pool.query(
+      'SELECT uid AS id, "firstName", "lastName", email, phone, role, status, departament, created_at AS "createdAt" FROM users ORDER BY created_at DESC'
+    );
+    res.json(rows);
   } catch (err) {
     console.error('GET /users:', err);
     res.status(500).json({ error: 'Eroare server.' });
@@ -23,17 +24,18 @@ router.get('/', verifyToken, requireAdmin, async (req, res) => {
 // GET /api/users/me — orice utilizator autentificat
 router.get('/me', verifyToken, async (req, res) => {
   try {
-    const doc = await db.collection('users').doc(req.uid).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Utilizator negăsit.' });
-    res.json({ id: doc.id, ...doc.data() });
+    const { rows } = await pool.query(
+      'SELECT uid AS id, "firstName", "lastName", email, phone, role, status, departament, created_at AS "createdAt" FROM users WHERE uid = $1',
+      [req.uid]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Utilizator negăsit.' });
+    res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Eroare server.' });
   }
 });
 
 // POST /api/users/register — creare cont nou
-// Un utilizator neautentificat poate crea un cont extern.
-// Un admin poate crea conturi cu orice rol.
 router.post('/register', async (req, res) => {
   const { email, password, firstName, lastName, phone, role, departament } = req.body;
 
@@ -44,40 +46,45 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'Parola trebuie să aibă minim 8 caractere.' });
   }
 
-  // Determine if caller is an authenticated admin
+  // Verifică dacă apelantul este admin
   let callerIsAdmin = false;
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     try {
       const decoded = await auth.verifyIdToken(authHeader.split('Bearer ')[1], true);
-      const callerDoc = await db.collection('users').doc(decoded.uid).get();
-      callerIsAdmin = callerDoc.exists && callerDoc.data().role === 'administrator';
-    } catch (_) { /* unauthenticated or invalid token — treat as non-admin */ }
+      const { rows } = await pool.query(
+        'SELECT role FROM users WHERE uid = $1',
+        [decoded.uid]
+      );
+      callerIsAdmin = rows.length > 0 && rows[0].role === 'administrator';
+    } catch (_) { /* token invalid sau neautentificat */ }
   }
 
-  // Enforce role cap: non-admins can only register as 'extern'
   const effectiveRole = callerIsAdmin ? (role ?? 'extern') : 'extern';
   if (!callerIsAdmin && role && role !== 'extern') {
     return res.status(403).json({ error: 'Acces interzis: numai adminii pot crea conturi cu rol privilegiat.' });
   }
 
   try {
-    const userRecord = await auth.createUser({ email, password, displayName: `${firstName} ${lastName}`.trim() });
-
-    await db.collection('users').doc(userRecord.uid).set({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      email: email.trim().toLowerCase(),
-      phone: (phone ?? '').trim(),
-      role: effectiveRole,
-      status: 'activ',
-      departament: departament ?? null,
-      createdAt: FieldValue.serverTimestamp(),
+    const userRecord = await auth.createUser({
+      email,
+      password,
+      displayName: `${firstName} ${lastName}`.trim(),
     });
 
-    // Send email verification via Firebase Auth
-    // (Firebase Admin SDK cannot send verification email directly;
-    //  the client app must call user.sendEmailVerification() after login)
+    await pool.query(
+      `INSERT INTO users (uid, "firstName", "lastName", email, phone, role, status, departament)
+       VALUES ($1, $2, $3, $4, $5, $6, 'activ', $7)`,
+      [
+        userRecord.uid,
+        firstName.trim(),
+        lastName.trim(),
+        email.trim().toLowerCase(),
+        (phone ?? '').trim(),
+        effectiveRole,
+        departament ?? null,
+      ]
+    );
 
     res.status(201).json({ uid: userRecord.uid, role: effectiveRole });
   } catch (err) {
@@ -103,7 +110,12 @@ router.put('/:uid/role', verifyToken, requireAdmin, async (req, res) => {
   }
 
   try {
-    await db.collection('users').doc(uid).update({ role });
+    const result = await pool.query(
+      'UPDATE users SET role = $1 WHERE uid = $2',
+      [role, uid]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Utilizator negăsit.' });
+
     await writeAuditLog({
       userId: req.uid, userName: req.userName,
       actiune: 'modificare', entitate: 'Utilizator', entitateId: uid,
@@ -127,9 +139,12 @@ router.put('/:uid/status', verifyToken, requireAdmin, async (req, res) => {
   }
 
   try {
-    await db.collection('users').doc(uid).update({ status });
+    const result = await pool.query(
+      'UPDATE users SET status = $1 WHERE uid = $2',
+      [status, uid]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Utilizator negăsit.' });
 
-    // If disabling user, revoke all Firebase Auth sessions
     if (status !== 'activ') {
       await auth.revokeRefreshTokens(uid);
     }
