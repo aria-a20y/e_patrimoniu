@@ -2,7 +2,8 @@
 
 require('./firebase'); // Initialize Firebase Admin SDK before anything else
 
-const express = require('express');
+const express  = require('express');
+const { initDb } = require('./db');
 const helmet  = require('helmet');
 const cors    = require('cors');
 
@@ -12,6 +13,7 @@ const transactionsRouter = require('./routes/transactions');
 const contractsRouter   = require('./routes/contracts');
 const auctionsRouter    = require('./routes/auctions');
 const documentsRouter   = require('./routes/documents');
+const auditRouter       = require('./routes/audit');
 
 const app  = express();
 const PORT = process.env.PORT || 10000;
@@ -44,6 +46,7 @@ app.use('/api/transactions', transactionsRouter);
 app.use('/api/contracts',    contractsRouter);
 app.use('/api/auctions',     auctionsRouter);
 app.use('/api/documents',    documentsRouter);
+app.use('/api/audit',        auditRouter);
 
 // Health check — used by Render to confirm the service is alive
 app.get('/api/health', (_req, res) => {
@@ -60,6 +63,7 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'Eroare internă server.' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`e-Patrimoniu API listening on port ${PORT}`);
+  await initDb(); // Creează tabelele dacă nu există
 });
