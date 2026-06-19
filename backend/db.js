@@ -11,8 +11,8 @@ const path = require('path');
  */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // Render PostgreSQL necesită SSL în producție
-  ssl: process.env.NODE_ENV === 'production'
+  // Render PostgreSQL necesită SSL — activăm ori de câte ori avem DATABASE_URL extern
+  ssl: process.env.DATABASE_URL
     ? { rejectUnauthorized: false }
     : false,
   max: 10,
