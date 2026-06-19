@@ -1,15 +1,13 @@
 -- ============================================================
--- e-Patrimoniu — PostgreSQL Schema (completă)
--- Toate comenzile folosesc IF NOT EXISTS — sigur de apelat
+-- e-Patrimoniu -- PostgreSQL Schema (completa)
+-- Toate comenzile folosesc IF NOT EXISTS -- sigur de apelat
 -- de mai multe ori (idempotent).
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- ─────────────────────────────────────────────────────────────
 -- USERS
 -- uid = Firebase Auth UID (string), PK
--- ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
   uid            TEXT        PRIMARY KEY,
   "firstName"    TEXT        NOT NULL,
@@ -25,9 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ─────────────────────────────────────────────────────────────
--- PROPERTIES — bunuri imobiliare
--- ─────────────────────────────────────────────────────────────
+-- PROPERTIES -- bunuri imobiliare
 CREATE TABLE IF NOT EXISTS properties (
   id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   denumire           TEXT        NOT NULL,
@@ -51,9 +47,7 @@ CREATE TABLE IF NOT EXISTS properties (
   created_by         TEXT        REFERENCES users(uid) ON DELETE SET NULL
 );
 
--- ─────────────────────────────────────────────────────────────
--- TRANSACTIONS — tranzactii imobiliare
--- ─────────────────────────────────────────────────────────────
+-- TRANSACTIONS -- tranzactii imobiliare
 CREATE TABLE IF NOT EXISTS transactions (
   id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id         UUID        NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -75,9 +69,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   created_by          TEXT        REFERENCES users(uid) ON DELETE SET NULL
 );
 
--- ─────────────────────────────────────────────────────────────
--- CONTRACTS — contracte (inchiriere, concesionare etc.)
--- ─────────────────────────────────────────────────────────────
+-- CONTRACTS -- contracte (inchiriere, concesionare etc.)
 CREATE TABLE IF NOT EXISTS contracts (
   id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id         UUID        NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -98,9 +90,7 @@ CREATE TABLE IF NOT EXISTS contracts (
   CONSTRAINT contracts_dates_check CHECK (data_final > data_inceput)
 );
 
--- ─────────────────────────────────────────────────────────────
--- AUCTIONS — licitatii
--- ─────────────────────────────────────────────────────────────
+-- AUCTIONS -- licitatii
 CREATE TABLE IF NOT EXISTS auctions (
   id                    UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id           UUID          NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -126,9 +116,7 @@ CREATE TABLE IF NOT EXISTS auctions (
   CONSTRAINT auctions_dates_check CHECK (data_final > data_inceput)
 );
 
--- ─────────────────────────────────────────────────────────────
--- BIDS — oferte licitatie
--- ─────────────────────────────────────────────────────────────
+-- BIDS -- oferte licitatie
 CREATE TABLE IF NOT EXISTS bids (
   id                  UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
   auction_id          UUID          NOT NULL REFERENCES auctions(id) ON DELETE CASCADE,
@@ -141,9 +129,7 @@ CREATE TABLE IF NOT EXISTS bids (
   motiv_respingere    TEXT
 );
 
--- ─────────────────────────────────────────────────────────────
--- AUCTION PARTICIPANTS — participanti inregistrati la licitatie
--- ─────────────────────────────────────────────────────────────
+-- AUCTION PARTICIPANTS -- participanti inregistrati la licitatie
 CREATE TABLE IF NOT EXISTS auction_participants (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   auction_id      UUID        NOT NULL REFERENCES auctions(id) ON DELETE CASCADE,
@@ -152,10 +138,8 @@ CREATE TABLE IF NOT EXISTS auction_participants (
   UNIQUE (auction_id, user_id)
 );
 
--- ─────────────────────────────────────────────────────────────
--- DOCUMENTS — documente atasate (Firebase Storage URLs)
+-- DOCUMENTS -- documente atasate (Firebase Storage URLs)
 -- Poate fi legat de: proprietate, tranzactie, contract, licitatie
--- ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS documents (
   id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
   denumire          TEXT          NOT NULL,
@@ -169,24 +153,19 @@ CREATE TABLE IF NOT EXISTS documents (
   file_url          TEXT          NOT NULL DEFAULT '',
   file_type         TEXT          NOT NULL DEFAULT 'pdf',
   file_size         BIGINT        NOT NULL DEFAULT 0,
-  -- Relatii optionale (document poate fi atasat la orice entitate)
   property_id       UUID          REFERENCES properties(id) ON DELETE SET NULL,
   transaction_id    UUID          REFERENCES transactions(id) ON DELETE SET NULL,
   contract_id       UUID          REFERENCES contracts(id) ON DELETE SET NULL,
   auction_id        UUID          REFERENCES auctions(id) ON DELETE SET NULL,
-  -- Campuri metadata document fizic
   numar_document    TEXT,
   data_document     DATE,
   emitent           TEXT,
   note              TEXT,
-  -- Audit
   uploaded_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   uploaded_by       TEXT          REFERENCES users(uid) ON DELETE SET NULL
 );
 
--- ─────────────────────────────────────────────────────────────
--- AUDIT LOG — jurnal actiuni utilizatori
--- ─────────────────────────────────────────────────────────────
+-- AUDIT LOG -- jurnal actiuni utilizatori
 CREATE TABLE IF NOT EXISTS audit_log (
   id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       TEXT        NOT NULL,
@@ -199,9 +178,28 @@ CREATE TABLE IF NOT EXISTS audit_log (
   timestamp     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ─────────────────────────────────────────────────────────────
--- INDECSI — performanta interogari frecvente
--- ─────────────────────────────────────────────────────────────
+-- ============================================================
+-- MIGRARI -- adauga coloane noi la tabele existente (idempotent)
+-- Necesare cand baza de date exista deja cu schema veche.
+-- ============================================================
+
+ALTER TABLE users     ADD COLUMN IF NOT EXISTS photo_url      TEXT;
+
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS transaction_id UUID        REFERENCES transactions(id) ON DELETE SET NULL;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS contract_id    UUID        REFERENCES contracts(id)    ON DELETE SET NULL;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS auction_id     UUID        REFERENCES auctions(id)     ON DELETE SET NULL;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS uploaded_at    TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS uploaded_by    TEXT        REFERENCES users(uid)       ON DELETE SET NULL;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS file_url       TEXT        NOT NULL DEFAULT '';
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS file_type      TEXT        NOT NULL DEFAULT 'pdf';
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS file_size      BIGINT      NOT NULL DEFAULT 0;
+
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS ip_address TEXT;
+
+-- ============================================================
+-- INDECSI -- performanta interogari frecvente
+-- ============================================================
+
 CREATE INDEX IF NOT EXISTS idx_properties_tip           ON properties(tip);
 CREATE INDEX IF NOT EXISTS idx_properties_status        ON properties(status);
 CREATE INDEX IF NOT EXISTS idx_properties_localitate    ON properties(localitate);
