@@ -158,20 +158,20 @@ Important:
     return session.id;
   }
 
-  static Stream<List<ChatSession>> getSessions(String userId) {
-    final result = _sessions
+  /// Sync getter — folosit direct în setState (înlocuiește StreamBuilder)
+  static List<ChatSession> getSessionsList(String userId) {
+    return _sessions
         .where((s) => s.userId == userId)
         .toList()
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    return Stream.value(result);
   }
 
-  static Stream<List<ChatMessage>> getMessages(String sessionId) {
-    final result = _messages
+  /// Sync getter — folosit direct în setState (înlocuiește StreamBuilder)
+  static List<ChatMessage> getMessagesList(String sessionId) {
+    return _messages
         .where((m) => m.sessionId == sessionId)
         .toList()
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-    return Stream.value(result);
   }
 
   static Future<void> saveMessage(ChatMessage msg) async {
