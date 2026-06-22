@@ -1,8 +1,8 @@
 {
   "version": 2,
   "framework": null,
-  "buildCommand": "echo 'Flutter pre-built'",
-  "outputDirectory": "build/web",
+  "buildCommand": "mkdir -p .vercel/output/static && cp -r build/web/. .vercel/output/static/ && printf '{\"version\":3}' > .vercel/output/config.json",
+  "outputDirectory": ".vercel/output",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
