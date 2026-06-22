@@ -1,8 +1,8 @@
 {
   "version": 2,
   "framework": null,
-  "buildCommand": "mkdir -p .vercel/output/static && cp -r build/web/. .vercel/output/static/ && printf '{\"version\":3}' > .vercel/output/config.json",
-  "outputDirectory": ".vercel/output",
+  "buildCommand": "cp -r build/web public",
+  "outputDirectory": "public",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
