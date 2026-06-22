@@ -15,11 +15,11 @@ class AppConfig {
   static const bool enablePushNotifications = false;
 
   /// Backend API URL
-  /// - Local:   'http://localhost:10000'
-  /// - Render:  setat din --dart-define=BACKEND_URL=https://e-patrimoniu-api.onrender.com
+  /// - Local dev: suprascrie cu --dart-define=BACKEND_URL=http://localhost:10000
+  /// - Productie: https://e-patrimoniu-api.onrender.com (default)
   static const String backendUrl = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'http://localhost:10000',
+    defaultValue: 'https://e-patrimoniu-api.onrender.com',
   );
 
   /// Timeout rețea
