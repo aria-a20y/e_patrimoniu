@@ -30,10 +30,16 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/*
-# Excepție: includem build/web pentru deploy Vercel
-!/build/web
-!/build/web/**
+# Build outputs — excluzie pe platforme, NU pe build/web (necesar Vercel)
+/build/android/
+/build/ios/
+/build/linux/
+/build/macos/
+/build/windows/
+/build/app/
+/build/dart2js_cache/
+/build/flutter_assets/
+/build/unit_test_assets/
 /coverage/
 
 # Symbolication related
