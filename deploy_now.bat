@@ -26,13 +26,14 @@ echo  3. Adaug fisierele modificate
 echo ========================================
 git add .gitignore vercel.json
 git add build/web
+git add backend/db.js
 echo Fisiere adaugate.
 
 echo.
 echo ========================================
 echo  4. Commit
 echo ========================================
-git commit -m "fix: rebuild cu BACKEND_URL corect, gitignore fara wildcard build"
+git commit -m "feat: seed automat baza de date la pornire (minim 7 randuri/tabela)"
 if %ERRORLEVEL% neq 0 (
     echo Nimic de commit sau eroare. Continui cu push...
 )
