@@ -30,7 +30,25 @@ async function verifyToken(req, res, next) {
     );
 
     if (rows.length === 0) {
-      return res.status(403).json({ error: 'Utilizator negăsit în sistem.' });
+      // Auto-creare user la primul login Firebase
+      const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM users');
+      const isFirst = parseInt(countRows[0].count, 10) === 0;
+      const role = isFirst ? 'administrator' : 'extern';
+
+      const nameParts = (decoded.name || '').trim().split(/\s+/);
+      const firstName = nameParts[0] || decoded.email?.split('@')[0] || 'Utilizator';
+      const lastName  = nameParts.slice(1).join(' ') || '';
+
+      await pool.query(
+        `INSERT INTO users (uid, "firstName", "lastName", email, role, status)
+         VALUES ($1, $2, $3, $4, $5, 'activ')
+         ON CONFLICT (uid) DO NOTHING`,
+        [decoded.uid, firstName, lastName, decoded.email || '', role]
+      );
+
+      req.userRole = role;
+      req.userName = decoded.name || decoded.email || decoded.uid;
+      return next();
     }
 
     const user = rows[0];

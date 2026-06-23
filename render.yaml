@@ -4,26 +4,16 @@ services:
     runtime: node
     region: frankfurt
     plan: free
-
-    # Render rulează comenzile din rădăcina repo-ului
-    buildCommand: cd backend && npm install --production
-    startCommand: cd backend && node index.js
-
+    rootDir: backend
+    buildCommand: npm install --production
+    startCommand: node index.js
     healthCheckPath: /api/health
-
     envVars:
       - key: NODE_ENV
         value: production
-
-      # URL-ul aplicației Flutter pe Vercel — actualizează după primul deploy
       - key: ALLOWED_ORIGIN
-        value: https://e-patrimoniu.vercel.app
-
-      # Conținutul complet al serviceAccountKey.json (JSON pe o singură linie)
-      # Setează-l manual în Render Dashboard → Environment → Secret Files / Env Vars
+        sync: false   # seteaza manual: URL-ul Vercel (ex: https://e-patrimoniu.vercel.app)
       - key: FIREBASE_SERVICE_ACCOUNT
-        sync: false   # nu se comite în git; se setează manual în Render dashboard
-
-      # Furnizat automat de Render dacă adaugi un PostgreSQL addon la serviciu
+        sync: false   # seteaza manual: continutul fisierului serviceAccountKey.json
       - key: DATABASE_URL
-        sync: false
+        sync: false   # seteaza manual: URL PostgreSQL Render

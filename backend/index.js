@@ -22,14 +22,13 @@ const PORT = process.env.PORT || 10000;
 app.use(helmet());
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
-// ALLOWED_ORIGIN is set in Render env vars to your Vercel URL, e.g.:
-//   https://e-patrimoniu.vercel.app
-// Multiple origins can be comma-separated: "https://a.vercel.app,http://localhost:5000"
-const rawOrigins  = (process.env.ALLOWED_ORIGIN ?? 'http://localhost:5000').split(',').map(s => s.trim());
+// ALLOWED_ORIGIN poate fi setat în Render env vars (comma-separated).
+// Default: permite toate deployment-urile Vercel + localhost dev.
+const rawOrigins  = (process.env.ALLOWED_ORIGIN ?? 'https://e-patrimoniu.vercel.app,https://e-patrimoniu-u5qw.vercel.app,https://e-patrimoniu-sqkb.vercel.app,http://localhost:5000,http://localhost:3000').split(',').map(s => s.trim());
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g. same-origin, curl, Render health checks)
-    if (!origin || rawOrigins.includes(origin)) return callback(null, true);
+    // Allow: no origin (curl/Render health), explicit list, orice *.vercel.app preview URL
+    if (!origin || rawOrigins.includes(origin) || /^https:\/\/[^.]+\.vercel\.app$/.test(origin)) return callback(null, true);
     callback(new Error(`CORS: origin not allowed: ${origin}`));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
