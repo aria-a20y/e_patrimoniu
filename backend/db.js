@@ -34,6 +34,7 @@ async function initDb() {
     await pool.query(schema);
     console.log('[DB] Schema initializata cu succes.');
     await seedDb();
+    await seedExtra();
   } catch (err) {
     console.error('[DB] Eroare la initializarea schemei:', err.message || err.code || JSON.stringify(err));
   }
@@ -196,6 +197,27 @@ async function seedDb() {
     console.log('[DB] Date demo inserate cu succes! (8 tabele populate, minim 7 randuri fiecare)');
   } catch (err) {
     console.error('[DB] Eroare la seeding:', err.message || err);
+  }
+}
+
+/**
+ * Rulează seed_extra.sql la fiecare pornire a serverului.
+ * Folosește ON CONFLICT DO NOTHING — sigur de apelat de mai multe ori.
+ * Adaugă datele suplimentare (20 proprietăți, 24 tranzacții, 30 contracte, 44 licitații)
+ * chiar dacă baza nu e goală.
+ */
+async function seedExtra() {
+  try {
+    const seedExtraPath = path.join(__dirname, 'seed_extra.sql');
+    if (!fs.existsSync(seedExtraPath)) {
+      console.log('[DB] seed_extra.sql nu există, omis.');
+      return;
+    }
+    const sql = fs.readFileSync(seedExtraPath, 'utf8');
+    await pool.query(sql);
+    console.log('[DB] seed_extra.sql rulat cu succes — date suplimentare inserate.');
+  } catch (err) {
+    console.error('[DB] Eroare la seed_extra:', err.message || err);
   }
 }
 
