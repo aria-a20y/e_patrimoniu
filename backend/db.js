@@ -35,6 +35,7 @@ async function initDb() {
     console.log('[DB] Schema initializata cu succes.');
     await seedDb();
     await seedExtra();
+    await seedPropertyDocuments();
   } catch (err) {
     console.error('[DB] Eroare la initializarea schemei:', err.message || err.code || JSON.stringify(err));
   }
@@ -197,6 +198,36 @@ async function seedDb() {
     console.log('[DB] Date demo inserate cu succes! (8 tabele populate, minim 7 randuri fiecare)');
   } catch (err) {
     console.error('[DB] Eroare la seeding:', err.message || err);
+  }
+}
+
+/**
+ * Inserează câte un document (extrasCF) pentru fiecare proprietate
+ * care nu are niciun document asociat.
+ * Idempotent — sigur de apelat de mai multe ori.
+ */
+async function seedPropertyDocuments() {
+  try {
+    const result = await pool.query(`
+      INSERT INTO documents (denumire, tip, status, file_url, file_type, file_size, property_id)
+      SELECT
+        'Document cadastral - ' || p.denumire,
+        'extrasCF',
+        'neverificat',
+        '',
+        'pdf',
+        0,
+        p.id
+      FROM properties p
+      WHERE NOT EXISTS (
+        SELECT 1 FROM documents d WHERE d.property_id = p.id
+      )
+    `);
+    if (result.rowCount > 0) {
+      console.log(`[DB] Documente inserate automat pentru ${result.rowCount} bunuri fara documente.`);
+    }
+  } catch (err) {
+    console.error('[DB] Eroare la seedPropertyDocuments:', err.message || err);
   }
 }
 
