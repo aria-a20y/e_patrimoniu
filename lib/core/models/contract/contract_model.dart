@@ -1,3 +1,10 @@
+double _parseDouble(dynamic v, [double fallback = 0.0]) {
+  if (v == null) return fallback;
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v) ?? fallback;
+  return fallback;
+}
+
 enum ContractStatus { activ, prelungit, reziliat, expirat, finalizat, anulat }
 
 enum ContractChangeType {
@@ -76,7 +83,7 @@ class ContractModel {
       parteContractanta: d['parteContractanta'] ?? '',
       dataInceput: _parseDate(d['dataInceput']),
       dataFinal: _parseDate(d['dataFinal']),
-      valoare: (d['valoare'] ?? 0).toDouble(),
+      valoare: _parseDouble(d['valoare']),
       valutaMoneda: d['valutaMoneda'] ?? 'RON',
       status: ContractStatus.values.firstWhere(
         (e) => e.name == d['status'],

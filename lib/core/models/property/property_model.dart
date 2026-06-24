@@ -1,3 +1,10 @@
+double _parseDouble(dynamic v, [double fallback = 0.0]) {
+  if (v == null) return fallback;
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v) ?? fallback;
+  return fallback;
+}
+
 enum PropertyType { teren, cladire, spatiu, constructie }
 enum JuridicalDomain { public, privat }
 enum PropertyStatus { activ, inactiv, scosEvidenta, inLitigiu }
@@ -88,8 +95,8 @@ class PropertyModel {
       ),
       numarCadastral: d['numarCadastral'] ?? '',
       numarCarteF: d['numarCarteF'] ?? '',
-      suprafata: (d['suprafata'] ?? 0).toDouble(),
-      valoareInventar: (d['valoareInventar'] ?? 0).toDouble(),
+      suprafata: _parseDouble(d['suprafata']),
+      valoareInventar: _parseDouble(d['valoareInventar']),
       destinatie: d['destinatie'] ?? '',
       status: PropertyStatus.values.firstWhere(
         (e) => e.name == d['status'],

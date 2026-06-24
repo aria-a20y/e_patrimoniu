@@ -1,3 +1,11 @@
+// Helper: PostgreSQL returnează NUMERIC ca String ("1000.00") — convertim safe
+double _parseDouble(dynamic v, [double fallback = 0.0]) {
+  if (v == null) return fallback;
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v) ?? fallback;
+  return fallback;
+}
+
 enum AuctionType { vanzare, inchiriere, concesionare }
 enum AuctionStatus { draft, publicata, activa, inchisa, atribuita, anulata, contestata }
 
@@ -78,9 +86,9 @@ class AuctionModel {
         (e) => e.name == d['tipAtribuire'],
         orElse: () => AuctionType.inchiriere,
       ),
-      pretPornire: (d['pretPornire'] ?? 0).toDouble(),
-      pasLicitare: (d['pasLicitare'] ?? 0).toDouble(),
-      garantieParticipare: (d['garantieParticipare'] ?? 0).toDouble(),
+      pretPornire: _parseDouble(d['pretPornire']),
+      pasLicitare: _parseDouble(d['pasLicitare']),
+      garantieParticipare: _parseDouble(d['garantieParticipare']),
       dataInceput: _parseDate(d['dataInceput']),
       dataFinal: _parseDate(d['dataFinal']),
       status: AuctionStatus.values.firstWhere(
@@ -90,7 +98,7 @@ class AuctionModel {
       castigatorId: d['castigatorId'],
       castigatorNume: d['castigatorNume'],
       ofertaCastigatoare: d['ofertaCastigatoare'] != null
-          ? (d['ofertaCastigatoare']).toDouble()
+          ? _parseDouble(d['ofertaCastigatoare'])
           : null,
       transactionId: d['transactionId']?.toString(),
       contractId: d['contractId']?.toString(),
@@ -149,7 +157,7 @@ class BidModel {
       auctionId: d['auctionId']?.toString() ?? '',
       participantId: d['participantId'] ?? '',
       participantNume: d['participantNume'] ?? '',
-      valoare: (d['valoare'] ?? 0).toDouble(),
+      valoare: _parseDouble(d['valoare']),
       dataOra: DateTime.tryParse(d['dataOra']?.toString() ?? '') ?? DateTime.now(),
       validata: d['validata'] ?? false,
       respinsa: d['respinsa'] ?? false,
