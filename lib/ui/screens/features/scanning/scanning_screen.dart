@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../theme/app_theme.dart';
 import '../../../../core/services/scan_service.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/api_service.dart';
 import '../../../widgets/shared_widgets.dart';
 
 class ScanningScreen extends StatefulWidget {
@@ -464,6 +465,39 @@ class _ScanningScreenState extends State<ScanningScreen> {
                   };
                 }
                 await ScanService.updateFields(_scanResult!.id, updatedFields);
+
+                // Salvare în baza de date
+                try {
+                  final tipDoc = updatedFields['tipDocument']?['valoare']?.toString() ?? '';
+                  final numarAct = updatedFields['numarAct']?['valoare']?.toString() ?? '';
+                  final numarCadastral = updatedFields['numarCadastral']?['valoare']?.toString() ?? '';
+                  final numarCarteF = updatedFields['numarCarteF']?['valoare']?.toString() ?? '';
+                  final dataTxt = updatedFields['dataDocument']?['valoare']?.toString() ?? '';
+                  final emitent = updatedFields['emitent']?['valoare']?.toString() ?? '';
+                  final numarRef = numarAct.isNotEmpty ? numarAct : numarCadastral;
+                  final denumire = tipDoc.isNotEmpty
+                      ? '$tipDoc${numarRef.isNotEmpty ? ' nr. $numarRef' : ''}'
+                      : 'Document scanat';
+                  final ext = _selectedFileName?.split('.').last ?? 'pdf';
+
+                  await ApiService.post('/api/documents', {
+                    'denumire': denumire,
+                    'tip': _mapTipDocument(tipDoc),
+                    'fileUrl': '',
+                    'fileType': ext,
+                    'fileSize': _selectedFileBytes?.length ?? 0,
+                    'numarDocument': numarRef.isNotEmpty ? numarRef : null,
+                    'dataDocument': _parseDataDocument(dataTxt),
+                    'emitent': emitent.isNotEmpty ? emitent : null,
+                    'note': [
+                      if (numarCadastral.isNotEmpty) 'Nr. cadastral: $numarCadastral',
+                      if (numarCarteF.isNotEmpty) 'Nr. CF: $numarCarteF',
+                    ].join(' | '),
+                  });
+                } catch (_) {
+                  // Salvarea în DB a eșuat, dar documentul rămâne verificat local
+                }
+
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                   content: Text('Document verificat și salvat cu succes'),
@@ -492,6 +526,24 @@ class _ScanningScreenState extends State<ScanningScreen> {
         ],
       ),
     );
+  }
+
+  String _mapTipDocument(String label) {
+    switch (label) {
+      case 'Extras Carte Funciară': return 'extrasCF';
+      case 'Plan Cadastral': return 'planCadastral';
+      case 'HCL': return 'hcl';
+      case 'Contract de Concesiune': return 'contract';
+      default: return 'altele';
+    }
+  }
+
+  String? _parseDataDocument(String txt) {
+    // Formatul din mock: "dd.MM.yyyy"
+    if (txt.isEmpty) return null;
+    final parts = txt.split('.');
+    if (parts.length != 3) return null;
+    return '${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')}';
   }
 
   String _fieldLabel(String key) {

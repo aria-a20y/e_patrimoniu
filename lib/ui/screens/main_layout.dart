@@ -49,7 +49,7 @@ class _MainLayoutState extends State<MainLayout> {
 
   Widget _buildScreen() {
     switch (_selectedIndex) {
-      case 0: return const DashboardScreen();
+      case 0: return DashboardScreen(onNavigate: (i) => setState(() => _selectedIndex = i));
       case 1: return const PropertiesScreen();
       case 2: return const DocumentsScreen();
       case 3: return const ScanningScreen();

@@ -8,7 +8,8 @@ import '../../../../core/models/auction/auction_model.dart';
 import '../../../widgets/shared_widgets.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final void Function(int)? onNavigate;
+  const DashboardScreen({super.key, this.onNavigate});
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
@@ -144,6 +145,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 subtitle: 'Active: ${props['active'] ?? 0}',
                 icon: Icons.business_rounded,
                 color: AppTheme.greenEmerald,
+                onTap: () => widget.onNavigate?.call(1),
               ),
               StatCard(
                 label: 'Tranzacții',
@@ -151,6 +153,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 subtitle: 'În derulare: ${txs['inDerulare'] ?? 0}',
                 icon: Icons.swap_horiz_rounded,
                 color: AppTheme.greenMid,
+                onTap: () => widget.onNavigate?.call(4),
               ),
               StatCard(
                 label: 'Contracte',
@@ -158,6 +161,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 subtitle: 'Active',
                 icon: Icons.description_rounded,
                 color: const Color(0xFF2563EB),
+                onTap: () => widget.onNavigate?.call(5),
               ),
               StatCard(
                 label: 'Licitații',
@@ -165,6 +169,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 subtitle: 'Active / în desfășurare',
                 icon: Icons.gavel_rounded,
                 color: const Color(0xFFF59E0B),
+                onTap: () => widget.onNavigate?.call(6),
               ),
               StatCard(
                 label: 'Valoare Patrimoniu',
@@ -173,6 +178,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: Icons.account_balance_wallet_rounded,
                 color: AppTheme.greenDark,
                 isWide: true,
+                onTap: () => widget.onNavigate?.call(1),
               ),
             ],
           );

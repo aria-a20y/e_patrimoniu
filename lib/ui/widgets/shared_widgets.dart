@@ -11,6 +11,7 @@ class StatCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final bool isWide;
+  final VoidCallback? onTap;
 
   const StatCard({
     super.key,
@@ -20,10 +21,23 @@ class StatCard extends StatelessWidget {
     required this.icon,
     required this.color,
     this.isWide = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: _buildCard(),
+      ),
+    );
+  }
+
+  Widget _buildCard() {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
