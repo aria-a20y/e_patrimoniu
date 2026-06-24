@@ -228,6 +228,19 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
                 label: const Text('Publică'),
                 style: TextButton.styleFrom(foregroundColor: AppTheme.successGreen),
               ),
+            if (a.status == AuctionStatus.activa || a.status == AuctionStatus.publicata)
+              ElevatedButton.icon(
+                onPressed: () => _showDepunereOferta(context, a),
+                icon: const Icon(Icons.how_to_vote_rounded, size: 16),
+                label: const Text('Depune ofertă',
+                  style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 13)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.greenEmerald,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
             if (a.status == AuctionStatus.inchisa)
               TextButton.icon(
                 onPressed: () => _showSelectWinner(context, a),
@@ -246,6 +259,13 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
       Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textGrey, fontWeight: FontWeight.w500)),
       Text(value, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textDark)),
     ]);
+  }
+
+  void _showDepunereOferta(BuildContext context, AuctionModel a) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _DepunereOfertaDialog(auction: a, onBidSubmitted: _loadData),
+    );
   }
 
   void _showBids(BuildContext context, AuctionModel a) {
@@ -396,6 +416,246 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Dialog depunere ofertă (cu înregistrare automată) ──────────────────────
+class _DepunereOfertaDialog extends StatefulWidget {
+  final AuctionModel auction;
+  final VoidCallback onBidSubmitted;
+  const _DepunereOfertaDialog({required this.auction, required this.onBidSubmitted});
+
+  @override
+  State<_DepunereOfertaDialog> createState() => _DepunereOfertaDialogState();
+}
+
+class _DepunereOfertaDialogState extends State<_DepunereOfertaDialog> {
+  bool _loading = true;
+  bool _registered = false;
+  bool _submitting = false;
+  final _ofertaCtl = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkRegistration();
+  }
+
+  Future<void> _checkRegistration() async {
+    final reg = await AuctionService.isRegistered(widget.auction.id);
+    if (mounted) setState(() { _registered = reg; _loading = false; });
+  }
+
+  Future<void> _register() async {
+    setState(() => _loading = true);
+    try {
+      await AuctionService.registerAsParticipant(widget.auction.id);
+      if (mounted) setState(() { _registered = true; _loading = false; });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Ați fost înregistrat ca participant!'),
+          backgroundColor: AppTheme.successGreen,
+        ));
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Eroare: $e'),
+          backgroundColor: AppTheme.errorRed,
+        ));
+      }
+    }
+  }
+
+  Future<void> _submitBid() async {
+    if (!_formKey.currentState!.validate()) return;
+    final valoare = double.tryParse(_ofertaCtl.text.replaceAll(',', '.')) ?? 0;
+    setState(() => _submitting = true);
+    try {
+      await AuctionService.submitBid(widget.auction.id, valoare);
+      if (mounted) Navigator.pop(context);
+      widget.onBidSubmitted();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Ofertă de ${valoare.toStringAsFixed(0)} RON depusă cu succes!'),
+          backgroundColor: AppTheme.successGreen,
+        ));
+      }
+    } catch (e) {
+      if (mounted) setState(() => _submitting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Eroare: $e'),
+          backgroundColor: AppTheme.errorRed,
+        ));
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _ofertaCtl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = widget.auction;
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(children: [
+        const Icon(Icons.how_to_vote_rounded, color: AppTheme.greenEmerald, size: 22),
+        const SizedBox(width: 10),
+        Expanded(child: Text(a.titlu,
+          style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 16),
+          overflow: TextOverflow.ellipsis)),
+      ]),
+      content: SizedBox(
+        width: 460,
+        child: _loading
+          ? const Center(child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator()))
+          : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Info licitație
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.bgGrey,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: Column(children: [
+                  _infoRow('Tip atribuire', a.tipAtribuire.label),
+                  _infoRow('Preț pornire', '${a.pretPornire.toStringAsFixed(0)} RON'),
+                  _infoRow('Pas licitare', '${a.pasLicitare.toStringAsFixed(0)} RON'),
+                  _infoRow('Garanție', '${a.garantieParticipare.toStringAsFixed(0)} RON'),
+                  _infoRow('Bun imobiliar', a.propertyDenumire),
+                ]),
+              ),
+              const SizedBox(height: 16),
+              if (!_registered) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.warningOrange.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.warningOrange.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.info_outline, color: AppTheme.warningOrange, size: 18),
+                    const SizedBox(width: 10),
+                    const Expanded(child: Text(
+                      'Trebuie să vă înregistrați ca participant înainte de a depune o ofertă.',
+                      style: TextStyle(fontSize: 13, color: AppTheme.warningOrange, height: 1.4),
+                    )),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _register,
+                    icon: const Icon(Icons.person_add_rounded, size: 18),
+                    label: const Text('Înregistrare ca participant',
+                      style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.infoBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.successGreen.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.successGreen.withValues(alpha: 0.3)),
+                  ),
+                  child: const Row(children: [
+                    Icon(Icons.check_circle, color: AppTheme.successGreen, size: 16),
+                    SizedBox(width: 8),
+                    Text('Sunteți înregistrat ca participant.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.successGreen)),
+                  ]),
+                ),
+                const SizedBox(height: 14),
+                Form(
+                  key: _formKey,
+                  child: TextFormField(
+                    controller: _ofertaCtl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Valoarea ofertei (RON) *',
+                      suffixText: 'RON',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppTheme.borderColor)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppTheme.borderColor)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppTheme.greenEmerald, width: 2)),
+                      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppTheme.errorRed)),
+                      filled: true, fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    ),
+                    validator: (v) {
+                      final val = double.tryParse(v?.replaceAll(',', '.') ?? '');
+                      if (val == null || val <= 0) return 'Introduceți o valoare numerică pozitivă';
+                      if (val < a.pretPornire) {
+                        return 'Oferta trebuie să fie cel puțin ${a.pretPornire.toStringAsFixed(0)} RON';
+                      }
+                      final rest = (val - a.pretPornire) % a.pasLicitare;
+                      if (rest > 0.01) {
+                        return 'Oferta trebuie să respecte pasul de ${a.pasLicitare.toStringAsFixed(0)} RON';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Minim: ${a.pretPornire.toStringAsFixed(0)} RON · Pas: ${a.pasLicitare.toStringAsFixed(0)} RON',
+                  style: const TextStyle(fontSize: 11, color: AppTheme.textGrey),
+                ),
+              ],
+            ]),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Anulare', style: TextStyle(color: AppTheme.textGrey)),
+        ),
+        if (_registered)
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.greenEmerald, foregroundColor: Colors.white),
+            onPressed: _submitting ? null : _submitBid,
+            child: _submitting
+              ? const SizedBox(width: 18, height: 18,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : const Text('Depune oferta', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+          ),
+      ],
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(children: [
+        SizedBox(width: 120,
+          child: Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textGrey))),
+        Expanded(child: Text(value,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textDark))),
+      ]),
     );
   }
 }

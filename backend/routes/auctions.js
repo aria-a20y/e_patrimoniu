@@ -171,6 +171,51 @@ router.put('/:id/winner', verifyToken, requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/auctions/:id/participants — înregistrare participare
+router.post('/:id/participants', verifyToken, async (req, res) => {
+  const auctionId = req.params.id;
+  try {
+    const { rows: aRows } = await pool.query(
+      'SELECT status FROM auctions WHERE id = $1',
+      [auctionId]
+    );
+    if (aRows.length === 0) return res.status(404).json({ error: 'Licitație negăsită.' });
+    if (!['publicata', 'activa'].includes(aRows[0].status)) {
+      return res.status(409).json({ error: 'Înregistrarea nu este posibilă pentru această licitație.' });
+    }
+
+    await pool.query(
+      `INSERT INTO auction_participants (auction_id, user_id)
+       VALUES ($1, $2) ON CONFLICT (auction_id, user_id) DO NOTHING`,
+      [auctionId, req.uid]
+    );
+
+    await writeAuditLog({
+      userId: req.uid, userName: req.userName,
+      actiune: 'inregistrareParticipant', entitate: 'Licitatie', entitateId: auctionId,
+      detalii: 'Participare înregistrată la licitație',
+    });
+
+    res.status(201).json({ success: true });
+  } catch (err) {
+    console.error('POST /auctions/:id/participants:', err);
+    res.status(500).json({ error: 'Eroare server.' });
+  }
+});
+
+// GET /api/auctions/:id/participants/me — verifică dacă utilizatorul curent e înregistrat
+router.get('/:id/participants/me', verifyToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT id FROM auction_participants WHERE auction_id = $1 AND user_id = $2 LIMIT 1',
+      [req.params.id, req.uid]
+    );
+    res.json({ registered: rows.length > 0 });
+  } catch (err) {
+    res.status(500).json({ error: 'Eroare server.' });
+  }
+});
+
 // GET /api/auctions/:id/bids
 router.get('/:id/bids', verifyToken, async (req, res) => {
   try {

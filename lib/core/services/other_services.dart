@@ -121,4 +121,19 @@ class AuctionService {
     final all = await getAll(status: AuctionStatus.activa);
     return all.length;
   }
+
+  /// Verifică dacă utilizatorul curent este înregistrat ca participant
+  static Future<bool> isRegistered(String auctionId) async {
+    try {
+      final data = await ApiService.get('/api/auctions/$auctionId/participants/me');
+      return (data as Map<String, dynamic>)['registered'] as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Înregistrează utilizatorul curent ca participant la licitație
+  static Future<void> registerAsParticipant(String auctionId) async {
+    await ApiService.post('/api/auctions/$auctionId/participants', {});
+  }
 }

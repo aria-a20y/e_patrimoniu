@@ -8,6 +8,7 @@ import '../../../../core/models/contract/contract_model.dart';
 import '../../../../core/models/auction/auction_model.dart';
 import '../../../../core/services/document_service.dart';
 import '../../../../core/services/other_services.dart';
+import '../../../../core/services/api_service.dart';
 import '../../../widgets/shared_widgets.dart';
 import 'property_form.dart';
 
@@ -22,6 +23,20 @@ class PropertyDetailScreen extends StatefulWidget {
 class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
+  late Future<List<DocumentModel>> _docsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 5, vsync: this);
+    _docsFuture = DocumentService.getByProperty(widget.property.id);
+  }
+
+  void _refreshDocs() {
+    setState(() {
+      _docsFuture = DocumentService.getByProperty(widget.property.id);
+    });
+  }
 
   Color get _statusColor {
     switch (widget.property.status) {
@@ -30,12 +45,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       case PropertyStatus.scosEvidenta: return AppTheme.errorRed;
       case PropertyStatus.inLitigiu: return AppTheme.warningOrange;
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _tabCtrl = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -240,19 +249,157 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
   // ── TAB 2: DOCUMENTE ────────────────────────────────────────
   Widget _buildDocumentsTab(String propertyId) {
-    return FutureBuilder<List<DocumentModel>>(
-      future: DocumentService.getByProperty(propertyId),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        final docs = snap.data ?? [];
-        if (docs.isEmpty) return const EmptyState(message: 'Niciun document atașat', icon: Icons.folder_outlined);
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: docs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (_, i) => _buildDocCard(docs[i]),
-        );
-      },
+    return Stack(
+      children: [
+        FutureBuilder<List<DocumentModel>>(
+          future: _docsFuture,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final docs = snap.data ?? [];
+            if (docs.isEmpty) {
+              return EmptyState(
+                message: 'Niciun document atașat',
+                icon: Icons.folder_outlined,
+                actionLabel: 'Adaugă document',
+                onAction: () => _showAddDocumentDialog(context, propertyId),
+              );
+            }
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+              itemCount: docs.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) => _buildDocCard(docs[i]),
+            );
+          },
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton.extended(
+            heroTag: 'add_doc_fab',
+            onPressed: () => _showAddDocumentDialog(context, propertyId),
+            backgroundColor: AppTheme.greenEmerald,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text('Adaugă document',
+              style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 13)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showAddDocumentDialog(BuildContext context, String propertyId) {
+    final denumireCtl = TextEditingController();
+    final numarCtl = TextEditingController();
+    final noteCtl = TextEditingController();
+    DocumentType tip = DocumentType.altele;
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(children: [
+            Icon(Icons.attach_file_rounded, color: AppTheme.greenEmerald, size: 20),
+            SizedBox(width: 8),
+            Text('Adaugă document', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 16)),
+          ]),
+          content: SizedBox(
+            width: 460,
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  AppTextField(
+                    label: 'Denumire document *',
+                    controller: denumireCtl,
+                    validator: (v) => v?.trim().isEmpty == true ? 'Câmp obligatoriu' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<DocumentType>(
+                    value: tip,
+                    decoration: InputDecoration(
+                      labelText: 'Tip document *',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppTheme.borderColor)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppTheme.greenEmerald, width: 2)),
+                      filled: true, fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    ),
+                    items: DocumentType.values
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
+                      .toList(),
+                    onChanged: (v) => setS(() => tip = v ?? DocumentType.altele),
+                    style: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppTheme.textDark),
+                    dropdownColor: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  const SizedBox(height: 12),
+                  AppTextField(
+                    label: 'Număr document',
+                    controller: numarCtl,
+                  ),
+                  const SizedBox(height: 12),
+                  AppTextField(
+                    label: 'Note / observații',
+                    controller: noteCtl,
+                    maxLines: 3,
+                  ),
+                ]),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Anulare', style: TextStyle(color: AppTheme.textGrey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.greenEmerald,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                Navigator.pop(ctx);
+                try {
+                  await ApiService.post('/api/documents', {
+                    'denumire': denumireCtl.text.trim(),
+                    'tip': tip.name,
+                    'propertyId': propertyId,
+                    'fileUrl': '',
+                    'fileType': 'pdf',
+                    'fileSize': 0,
+                    'numarDocument': numarCtl.text.trim().isEmpty ? null : numarCtl.text.trim(),
+                    'note': noteCtl.text.trim().isEmpty ? null : noteCtl.text.trim(),
+                  });
+                  _refreshDocs();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Document adăugat cu succes'),
+                      backgroundColor: AppTheme.successGreen,
+                    ));
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Eroare: $e'),
+                      backgroundColor: AppTheme.errorRed,
+                    ));
+                  }
+                }
+              },
+              child: const Text('Salvează', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
