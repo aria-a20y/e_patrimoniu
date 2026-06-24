@@ -72,14 +72,14 @@ async function seedDb() {
     // ── 2. PROPERTIES (7 intrari) ─────────────────────────────────────────────
     await pool.query(`
       INSERT INTO properties (id, denumire, tip, adresa, localitate, domeniu_juridic, numar_cadastral, numar_carte_f, suprafata, valoare_inventar, destinatie, status, descriere, created_by) VALUES
-      ('a0000001-0001-0001-0001-000000000001','Teren Str. Florilor nr. 12',            'teren',      'Str. Florilor nr. 12',      'Cluj-Napoca', 'public',  '123456','CF-456789',  1250.00,   85000.00, 'Spatiu verde public',            'activ',      'Teren in domeniu public, str. Florilor','user_admin_001'),
-      ('a0000002-0002-0002-0002-000000000002','Cladire Primarie Sector 2',             'cladire',    'B-dul Unirii nr. 5',        'Bucuresti',   'public',  '234567','CF-567890',  3200.00, 1500000.00, 'Sediu administrativ primarie',   'activ',      'Cladire P+3, sediu Primariei Sector 2','user_admin_001'),
-      ('a0000003-0003-0003-0003-000000000003','Spatiu Comercial Piata Centrala',       'spatiu',     'Piata Centrala nr. 1',      'Timisoara',   'privat',  '345678','CF-678901',   450.00,  320000.00, 'Spatiu comercial zona centrala', 'activ',      'Spatiu comercial parter, zona centrala','user_func_001'),
-      ('a0000004-0004-0004-0004-000000000004','Teren Industrial Zona Nord',            'teren',      'Str. Industriei nr. 44',    'Brasov',      'privat',  '456789','CF-789012',  8500.00,  420000.00, 'Teren activitati industriale',   'activ',      'Teren intravilan destinatie industriala','user_func_002'),
-      ('a0000005-0005-0005-0005-000000000005','Constructie Dispensar Medical Rural',   'constructie','Str. Sanatatii nr. 3',      'Sibiu',       'public',  '567890','CF-890123',   680.00,  250000.00, 'Dispensar medical comunal',      'activ',      'Cladire P, dispensar medical UAT','user_func_001'),
-      ('a0000006-0006-0006-0006-000000000006','Teren Parc Tineretului',               'teren',      'Str. Tineretului nr. 10',   'Iasi',        'public',  '678901','CF-901234',  5200.00,  180000.00, 'Parc public recreere',           'activ',      'Teren amenajat ca parc de recreere','user_admin_001'),
-      ('a0000007-0007-0007-0007-000000000007','Spatiu Birouri Centru Civic',           'spatiu',     'Calea Victoriei nr. 22',    'Craiova',     'privat',  '789012','CF-012345',   320.00,  210000.00, 'Birouri administratie locala',   'inactiv',    'Spatiu birouri, necesita renovare','user_admin_002'),
-      ('a0000008-0008-0008-0008-000000000008','Teren Extravilan Zona Agricola',        'teren',      'Tarla 5, Parcela 12',       'Oradea',      'privat',  '890123','CF-123456', 12000.00,   95000.00, 'Teren agricol in litigiu',       'inLitigiu',  'Litigiu cu proprietar vecin privind limita de proprietate','user_func_002')
+      ('a0000001-0001-0001-0001-000000000001','Teren Str. Florilor nr. 12',            'teren',      'Str. Florilor nr. 12',      'Iași', 'public',  '123456','CF-456789',  1250.00,   85000.00, 'Spatiu verde public',            'activ',      'Teren in domeniu public, str. Florilor','user_admin_001'),
+      ('a0000002-0002-0002-0002-000000000002','Cladire Primarie Sector 2',             'cladire',    'B-dul Unirii nr. 5',        'Iași', 'public',  '234567','CF-567890',  3200.00, 1500000.00, 'Sediu administrativ primarie',   'activ',      'Cladire P+3, sediu Primariei Sector 2','user_admin_001'),
+      ('a0000003-0003-0003-0003-000000000003','Spatiu Comercial Piata Centrala',       'spatiu',     'Piata Centrala nr. 1',      'Iași', 'privat',  '345678','CF-678901',   450.00,  320000.00, 'Spatiu comercial zona centrala', 'activ',      'Spatiu comercial parter, zona centrala','user_func_001'),
+      ('a0000004-0004-0004-0004-000000000004','Teren Industrial Zona Nord',            'teren',      'Str. Industriei nr. 44',    'Iași', 'privat',  '456789','CF-789012',  8500.00,  420000.00, 'Teren activitati industriale',   'activ',      'Teren intravilan destinatie industriala','user_func_002'),
+      ('a0000005-0005-0005-0005-000000000005','Constructie Dispensar Medical Rural',   'constructie','Str. Sanatatii nr. 3',      'Iași', 'public',  '567890','CF-890123',   680.00,  250000.00, 'Dispensar medical comunal',      'activ',      'Cladire P, dispensar medical UAT','user_func_001'),
+      ('a0000006-0006-0006-0006-000000000006','Teren Parc Tineretului',               'teren',      'Str. Tineretului nr. 10',   'Iași', 'public',  '678901','CF-901234',  5200.00,  180000.00, 'Parc public recreere',           'activ',      'Teren amenajat ca parc de recreere','user_admin_001'),
+      ('a0000007-0007-0007-0007-000000000007','Spatiu Birouri Centru Civic',           'spatiu',     'Calea Victoriei nr. 22',    'Iași', 'privat',  '789012','CF-012345',   320.00,  210000.00, 'Birouri administratie locala',   'inactiv',    'Spatiu birouri, necesita renovare','user_admin_002'),
+      ('a0000008-0008-0008-0008-000000000008','Teren Extravilan Zona Agricola',        'teren',      'Tarla 5, Parcela 12',       'Iași', 'privat',  '890123','CF-123456', 12000.00,   95000.00, 'Teren agricol in litigiu',       'inLitigiu',  'Litigiu cu proprietar vecin privind limita de proprietate','user_func_002')
       ON CONFLICT (id) DO NOTHING
     `);
 
@@ -208,6 +208,10 @@ async function seedDb() {
  */
 async function seedPropertyDocuments() {
   try {
+    // Migrare: toate bunurile -> Municipiul Iași
+    await pool.query(`UPDATE properties SET localitate = 'Iași' WHERE localitate != 'Iași'`);
+
+    // Inserează document implicit pentru fiecare bun fără documente
     const result = await pool.query(`
       INSERT INTO documents (denumire, tip, status, file_url, file_type, file_size, property_id)
       SELECT
