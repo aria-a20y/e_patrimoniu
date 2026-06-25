@@ -54,6 +54,8 @@ async function initDb() {
     await seedDb();
     await seedExtra();
     await seedPropertyDocuments();
+    await seedClosedAuctionBids();
+    await seedAdditionalAuditLogs();
   } catch (err) {
     console.error('[DB] Eroare la initializarea schemei:', err.message || err.code || JSON.stringify(err));
   }
@@ -259,6 +261,78 @@ async function seedPropertyDocuments() {
  * AdaugÄ datele suplimentare (20 proprietÄÈi, 24 tranzacÈii, 30 contracte, 44 licitaÈii)
  * chiar dacÄ baza nu e goalÄ.
  */
+
+/**
+ * Adauga oferte (bids) pentru licitatiile cu status 'inchisa' sau 'atribuita'.
+ * Fiecare licitatie incheiata va avea minim 7 oferte, cu valori crescatoare.
+ * Ruleaza la fiecare pornire — idempotent (ON CONFLICT DO NOTHING).
+ */
+async function seedClosedAuctionBids() {
+  try {
+    const { rows: auctions } = await pool.query(`
+      SELECT a.id, a.pret_pornire, a.pas_licitare,
+             COUNT(b.id) AS bid_count
+      FROM auctions a
+      LEFT JOIN bids b ON b.auction_id = a.id
+      WHERE a.status IN ('inchisa', 'atribuita')
+      GROUP BY a.id, a.pret_pornire, a.pas_licitare
+      HAVING COUNT(b.id) < 7
+    `);
+
+    if (auctions.length === 0) {
+      console.log('[DB] Licitatii incheiate: toate au deja minim 7 oferte.');
+      return;
+    }
+
+    const participants = [
+      { id: 'user_ext_001', nume: 'George Marinescu / SC Alfa SRL' },
+      { id: 'user_ext_002', nume: 'Ana Gheorghe / SC Beta SRL' },
+      { id: 'user_ext_003', nume: 'Radu Popa / SC Omega SRL' },
+    ];
+
+    for (const auction of auctions) {
+      const existing = parseInt(auction.bid_count, 10);
+      const needed   = 7 - existing;
+      const pas      = parseFloat(auction.pas_licitare) || 50;
+      let baseVal    = parseFloat(auction.pret_pornire) + (existing + 1) * pas;
+
+      for (let i = 0; i < needed; i++) {
+        const p = participants[i % participants.length];
+        const val = (baseVal + i * pas).toFixed(2);
+        const daysAgo = needed - i;
+        await pool.query(`
+          INSERT INTO bids (auction_id, participant_id, participant_nume, valoare, data_ora, validata, respinsa)
+          VALUES ($1, $2, $3, $4, NOW() - ($5 || ' days')::INTERVAL, TRUE, FALSE)
+          ON CONFLICT DO NOTHING
+        `, [auction.id, p.id, p.nume, val, daysAgo]);
+      }
+    }
+    console.log(`[DB] Oferte adaugate pentru ${auctions.length} licitatii incheiate.`);
+  } catch (err) {
+    console.error('[DB] Eroare seedClosedAuctionBids:', err.message || err);
+  }
+}
+
+/**
+ * Adauga 4 intrari noi in jurnal de audit la fiecare pornire (daca nu exista).
+ * Idempotent — foloseste ID-uri fixe cu ON CONFLICT DO NOTHING.
+ */
+async function seedAdditionalAuditLogs() {
+  try {
+    await pool.query(`
+      INSERT INTO audit_log (id, user_id, user_name, actiune, entitate, entitate_id, detalii, ip_address) VALUES
+      ('ac000001-0001-0001-0001-000000000001','user_admin_001','Alexandru Ionescu','UPDATE','contracts', 'c0000002-0002-0002-0002-000000000002','Actualizat contract concesionare teren industrial: prelungire 5 ani','192.168.1.100'),
+      ('ac000002-0002-0002-0002-000000000002','user_func_001', 'Maria Popescu',   'CREATE','documents', 'da000008-0008-0008-0008-000000000008','Incarcat act aditional contract Alfa SRL, modificare valoare chirie','192.168.1.101'),
+      ('ac000003-0003-0003-0003-000000000003','user_admin_002','Cristina Moldovan','UPDATE','users',    'user_ext_001','Actualizat status utilizator George Marinescu: extern -> activ verificat','192.168.1.104'),
+      ('ac000004-0004-0004-0004-000000000004','user_func_002', 'Ion Dumitrescu',  'CREATE','auctions',  'd000000b-000b-000b-000b-00000000000b','Publicata licitatie concesionare teren tenis Complex Sibiu','192.168.1.102')
+      ON CONFLICT (id) DO NOTHING
+    `);
+    console.log('[DB] Jurnale de audit suplimentare inserate (4 inregistrari).');
+  } catch (err) {
+    console.error('[DB] Eroare seedAdditionalAuditLogs:', err.message || err);
+  }
+}
+
 async function seedExtra() {
   try {
     const seedExtraPath = path.join(__dirname, 'seed_extra.sql');
