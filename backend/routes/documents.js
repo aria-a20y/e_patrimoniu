@@ -190,12 +190,12 @@ router.delete('/:id', verifyToken, requireAdminOrStaff, async (req, res) => {
       'DELETE FROM documents WHERE id = $1 RETURNING denumire',
       [req.params.id]
     );
-    if (result.rowCount === 0) return res.status(404).json({ error: 'Document negăsit.' });
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Document negÄsit.' });
 
     await writeAuditLog({
       userId: req.uid, userName: req.userName,
       actiune: 'stergere', entitate: 'Document', entitateId: req.params.id,
-      detalii: `Document șters: ${result.rows[0].denumire}`,
+      detalii: `Document Èters: ${result.rows[0].denumire}`,
     });
     res.json({ success: true });
   } catch (err) {

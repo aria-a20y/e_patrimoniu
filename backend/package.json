@@ -4,7 +4,7 @@
   "description": "Backend API pentru e-Patrimoniu — gestiunea bunurilor imobile UAT",
   "main": "index.js",
   "engines": {
-    "node": ">=18"
+    "node": "20"
   },
   "scripts": {
     "start": "node index.js",

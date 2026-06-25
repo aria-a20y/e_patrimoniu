@@ -57,8 +57,8 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   final List<_NavItem> _comingSoonNav = [
-    _NavItem(10, 'Plăți', Icons.payment_rounded, Icons.payment_outlined),
-    _NavItem(11, 'Integrare Ghișeul.ro', Icons.computer_rounded, Icons.computer_outlined),
+    _NavItem(10, 'Plăţi', Icons.payment_rounded, Icons.payment_outlined),
+    _NavItem(11, 'Integrare Ghişeul.ro', Icons.computer_rounded, Icons.computer_outlined),
     _NavItem(12, 'Integrare ANAF/SPV', Icons.account_balance_rounded, Icons.account_balance_outlined),
     _NavItem(13, 'Integrare ANCPI', Icons.map_rounded, Icons.map_outlined),
     _NavItem(14, 'Notificări automate', Icons.notifications_rounded, Icons.notifications_outlined),
@@ -92,14 +92,10 @@ class _MainLayoutState extends State<MainLayout> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 768;
-
     if (isMobile) return _buildMobileLayout();
     return _buildDesktopLayout();
   }
 
-  // ============================================================
-  // DESKTOP LAYOUT - Sidebar + Content
-  // ============================================================
   Widget _buildDesktopLayout() {
     return Scaffold(
       body: Row(
@@ -120,7 +116,6 @@ class _MainLayoutState extends State<MainLayout> {
         decoration: const BoxDecoration(gradient: AppTheme.sidebarGradient),
         child: Column(
           children: [
-            // Logo & Toggle
             Container(
               height: 64,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -139,12 +134,7 @@ class _MainLayoutState extends State<MainLayout> {
                     const Expanded(
                       child: Text(
                         'e-Patrimoniu',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
+                        style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -173,7 +163,6 @@ class _MainLayoutState extends State<MainLayout> {
               ),
             ),
             const Divider(color: Colors.white12, height: 1),
-            // Main nav
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -203,7 +192,6 @@ class _MainLayoutState extends State<MainLayout> {
               ),
             ),
             const Divider(color: Colors.white12, height: 1),
-            // User info + logout
             _buildSidebarFooter(),
           ],
         ),
@@ -224,23 +212,15 @@ class _MainLayoutState extends State<MainLayout> {
             vertical: 10,
           ),
           decoration: BoxDecoration(
-            color: isSelected
-                ? Colors.white.withValues(alpha: 0.15)
-                : Colors.transparent,
+            color: isSelected ? Colors.white.withValues(alpha: 0.15) : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
-            mainAxisAlignment: _sidebarExpanded
-                ? MainAxisAlignment.start
-                : MainAxisAlignment.center,
+            mainAxisAlignment: _sidebarExpanded ? MainAxisAlignment.start : MainAxisAlignment.center,
             children: [
               Icon(
                 isSelected ? item.activeIcon : item.icon,
-                color: isSelected
-                    ? Colors.white
-                    : comingSoon
-                        ? Colors.white30
-                        : Colors.white60,
+                color: isSelected ? Colors.white : comingSoon ? Colors.white30 : Colors.white60,
                 size: 20,
               ),
               if (_sidebarExpanded) ...[
@@ -252,11 +232,7 @@ class _MainLayoutState extends State<MainLayout> {
                       fontFamily: 'Inter',
                       fontSize: 13.5,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                      color: isSelected
-                          ? Colors.white
-                          : comingSoon
-                              ? Colors.white30
-                              : Colors.white70,
+                      color: isSelected ? Colors.white : comingSoon ? Colors.white30 : Colors.white70,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -268,10 +244,7 @@ class _MainLayoutState extends State<MainLayout> {
                       color: Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text(
-                      'Curând',
-                      style: TextStyle(fontSize: 9, color: Colors.white38, fontFamily: 'Inter'),
-                    ),
+                    child: const Text('Curând', style: TextStyle(fontSize: 9, color: Colors.white38, fontFamily: 'Inter')),
                   ),
               ],
             ],
@@ -286,9 +259,7 @@ class _MainLayoutState extends State<MainLayout> {
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
-        mainAxisAlignment: _sidebarExpanded
-            ? MainAxisAlignment.start
-            : MainAxisAlignment.center,
+        mainAxisAlignment: _sidebarExpanded ? MainAxisAlignment.start : MainAxisAlignment.center,
         children: [
           CircleAvatar(
             radius: 18,
@@ -338,20 +309,15 @@ class _MainLayoutState extends State<MainLayout> {
       child: Column(
         children: [
           _buildTopBar(),
-          Expanded(
-            child: _buildScreen(),
-          ),
+          Expanded(child: _buildScreen()),
         ],
       ),
     );
   }
 
   Widget _buildTopBar() {
-    final item = [
-      ..._mainNav,
-      ..._comingSoonNav,
-    ].firstWhere((n) => n.index == _selectedIndex, orElse: () => _mainNav[0]);
-
+    final item = [..._mainNav, ..._comingSoonNav]
+        .firstWhere((n) => n.index == _selectedIndex, orElse: () => _mainNav[0]);
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -363,15 +329,7 @@ class _MainLayoutState extends State<MainLayout> {
         children: [
           Icon(item.activeIcon, color: AppTheme.greenEmerald, size: 20),
           const SizedBox(width: 10),
-          Text(
-            item.label,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textDark,
-            ),
-          ),
+          Text(item.label, style: const TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
           const Spacer(),
           Stack(
             children: [
@@ -404,8 +362,7 @@ class _MainLayoutState extends State<MainLayout> {
             child: Text(
               (FirebaseAuth.instance.currentUser?.displayName?.isNotEmpty == true
                   ? FirebaseAuth.instance.currentUser!.displayName![0]
-                  : 'U')
-                  .toUpperCase(),
+                  : 'U').toUpperCase(),
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
             ),
           ),
@@ -483,7 +440,6 @@ class _MainLayoutState extends State<MainLayout> {
   // ============================================================
   Widget _buildMobileLayout() {
     final mobileItems = _mainNav.take(5).toList();
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppTheme.greenDark,

@@ -60,9 +60,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   txs = txs.where((t) => t.propertyDenumire.toLowerCase().contains(q) || t.numarHcl.toLowerCase().contains(q) || t.descriere.toLowerCase().contains(q)).toList();
                 }
                 if (txs.isEmpty) return EmptyState(
-                  message: 'Nicio tranzacție găsită',
+                  message: 'Nicio tranzacţie găsită',
                   icon: Icons.swap_horiz_outlined,
-                  actionLabel: 'Adaugă tranzacție',
+                  actionLabel: 'Adaugă tranzacţie',
                   onAction: () => _showAddDialog(context),
                 );
                 return ListView.separated(
@@ -81,7 +81,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         backgroundColor: AppTheme.greenEmerald,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-        label: const Text('Adaugă tranzacție', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+        label: const Text('Adaugă tranzacţie', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -191,7 +191,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   const SizedBox(width: 8),
                   _metaChip(Icons.calendar_today_outlined, DateFormat('dd.MM.yyyy').format(t.dataTransactie)),
                   const Spacer(),
-                  Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textGrey),
+                  const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textGrey),
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert, size: 18, color: AppTheme.textGrey),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -235,7 +235,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Adaugă tranzacție', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+          title: const Text('Adaugă tranzacţie', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700)),
           content: SizedBox(
             width: 500,
             child: Form(
@@ -247,7 +247,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   DropdownButtonFormField<TransactionType>(
                     value: tip,
                     decoration: InputDecoration(
-                      labelText: 'Tip tranzacție *',
+                      labelText: 'Tip tranzacţie *',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       filled: true, fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),

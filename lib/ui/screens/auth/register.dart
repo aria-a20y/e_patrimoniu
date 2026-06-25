@@ -38,7 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Cont creat! Verificați emailul pentru confirmare.'),
+          content: const Text('Cont creat! Verificaţi emailul pentru confirmare.'),
           backgroundColor: AppTheme.successGreen,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

@@ -95,7 +95,7 @@ class AuthStyles {
         ),
         const SizedBox(height: 4),
         Text(
-          'Evidența bunurilor imobiliare',
+          'Evidenţa bunurilor imobiliare',
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 13,
