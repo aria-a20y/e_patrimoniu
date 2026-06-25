@@ -232,6 +232,23 @@ router.get('/:id/bids', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/auctions/:id/bids/:bidId/criteria — profilul criteriilor unui ofertant
+router.get('/:id/bids/:bidId/criteria', verifyToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT criterion_index AS "criterionIndex", is_met AS "isMet"
+       FROM bid_criteria
+       WHERE bid_id = $1
+       ORDER BY criterion_index`,
+      [req.params.bidId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /auctions/:id/bids/:bidId/criteria:', err);
+    res.status(500).json({ error: 'Eroare server.' });
+  }
+});
+
 // POST /api/auctions/:id/bids
 router.post('/:id/bids', verifyToken, async (req, res) => {
   const auctionId = req.params.id;
