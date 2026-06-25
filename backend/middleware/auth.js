@@ -20,7 +20,7 @@ async function verifyToken(req, res, next) {
   const token = authHeader.split('Bearer ')[1];
 
   try {
-    const decoded = await auth.verifyIdToken(token, true /* checkRevoked */);
+    const decoded = await auth.verifyIdToken(token);
     req.uid = decoded.uid;
 
     // Citește rolul și statusul din PostgreSQL (sursa de adevăr pentru RBAC)
