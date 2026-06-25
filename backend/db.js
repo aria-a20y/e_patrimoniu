@@ -56,6 +56,8 @@ async function initDb() {
     await seedPropertyDocuments();
     await seedClosedAuctionBids();
     await seedAdditionalAuditLogs();
+    await seedExtraAuditLogs();
+    await seedBidCriteria();
   } catch (err) {
     console.error('[DB] Eroare la initializarea schemei:', err.message || err.code || JSON.stringify(err));
   }
