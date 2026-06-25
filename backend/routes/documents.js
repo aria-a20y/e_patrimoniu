@@ -16,7 +16,7 @@ const DOC_SELECT = `
          denumire, tip, status,
          file_url        AS "fileUrl",
          file_type       AS "fileType",
-         file_size       AS "fileSize",
+         file_size::INTEGER AS "fileSize",
          property_id     AS "propertyId",
          transaction_id  AS "transactionId",
          contract_id     AS "contractId",

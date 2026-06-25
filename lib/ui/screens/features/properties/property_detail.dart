@@ -257,6 +257,16 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             if (snap.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
+            if (snap.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text('Eroare la încărcarea documentelor:\n${snap.error}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 13, color: Colors.red)),
+                ),
+              );
+            }
             final docs = snap.data ?? [];
             if (docs.isEmpty) {
               return EmptyState(

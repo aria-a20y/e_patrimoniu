@@ -316,7 +316,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 drawVerticalLine: false,
               ),
               titlesData: FlTitlesData(
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 46,
+                    interval: 10,
+                    getTitlesWidget: (v, meta) {
+                      return Container(
+                        margin: const EdgeInsets.only(right: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.greenEmerald,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '${v.toInt()}M',
+                          style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
+                      );
+                    },
+                  ),
+                ),
                 rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 bottomTitles: AxisTitles(
@@ -327,7 +347,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const months = ['Ian', 'Feb', 'Mar', 'Apr', 'Mai', 'Iun', 'Iul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                       final idx = v.toInt();
                       if (idx < 0 || idx >= months.length) return const SizedBox();
-                      return Text(months[idx], style: const TextStyle(fontSize: 10, color: AppTheme.textGrey));
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(months[idx], style: const TextStyle(fontSize: 10, color: AppTheme.textGrey)),
+                      );
                     },
                   ),
                 ),
@@ -339,7 +362,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   isCurved: true,
                   color: AppTheme.greenEmerald,
                   barWidth: 2.5,
-                  dotData: const FlDotData(show: false),
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                      radius: 3,
+                      color: AppTheme.greenEmerald,
+                      strokeWidth: 2,
+                      strokeColor: Colors.white,
+                    ),
+                  ),
                   belowBarData: BarAreaData(show: true, color: AppTheme.greenEmerald.withValues(alpha: 0.08)),
                 ),
               ],

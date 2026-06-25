@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_theme.dart';
+import '../../core/models/user/user_model.dart';
+import '../../core/services/auth_service.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/properties/properties_screen.dart';
 import 'features/documents/documents_screen.dart';
@@ -22,19 +24,37 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _selectedIndex = 0;
   bool _sidebarExpanded = true;
+  UserRole _currentRole = UserRole.extern;
+  int _notifCount = 3;
 
-  final List<_NavItem> _mainNav = [
-    _NavItem(0, 'Dashboard', Icons.dashboard_rounded, Icons.dashboard_outlined),
-    _NavItem(1, 'Bunuri Imobile', Icons.business_rounded, Icons.business_outlined),
-    _NavItem(2, 'Documente', Icons.folder_rounded, Icons.folder_outlined),
-    _NavItem(3, 'Scanare documente', Icons.document_scanner_rounded, Icons.document_scanner_outlined),
-    _NavItem(4, 'Tranzacții', Icons.swap_horiz_rounded, Icons.swap_horiz_outlined),
-    _NavItem(5, 'Contracte', Icons.description_rounded, Icons.description_outlined),
-    _NavItem(6, 'Licitații online', Icons.gavel_rounded, Icons.gavel_outlined),
-    _NavItem(7, 'Asistent AI', Icons.smart_toy_rounded, Icons.smart_toy_outlined),
-    _NavItem(8, 'Utilizatori', Icons.people_rounded, Icons.people_outlined),
-    _NavItem(9, 'Jurnal de audit', Icons.history_rounded, Icons.history_outlined),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadUserRole();
+  }
+
+  Future<void> _loadUserRole() async {
+    final role = await AuthService.getCurrentUserRole();
+    if (mounted) setState(() => _currentRole = role);
+  }
+
+  List<_NavItem> get _mainNav {
+    final base = [
+      _NavItem(0, 'Pagina principală', Icons.home_rounded, Icons.home_outlined),
+      _NavItem(1, 'Bunuri Imobile', Icons.business_rounded, Icons.business_outlined),
+      _NavItem(2, 'Documente', Icons.folder_rounded, Icons.folder_outlined),
+      _NavItem(3, 'Scanare documente', Icons.document_scanner_rounded, Icons.document_scanner_outlined),
+      _NavItem(4, 'Tranzacții', Icons.swap_horiz_rounded, Icons.swap_horiz_outlined),
+      _NavItem(5, 'Contracte', Icons.description_rounded, Icons.description_outlined),
+      _NavItem(6, 'Licitații online', Icons.gavel_rounded, Icons.gavel_outlined),
+      _NavItem(7, 'Asistent AI', Icons.smart_toy_rounded, Icons.smart_toy_outlined),
+    ];
+    if (_currentRole == UserRole.administrator) {
+      base.add(_NavItem(8, 'Utilizatori', Icons.people_rounded, Icons.people_outlined));
+    }
+    base.add(_NavItem(9, 'Jurnal de audit', Icons.history_rounded, Icons.history_outlined));
+    return base;
+  }
 
   final List<_NavItem> _comingSoonNav = [
     _NavItem(10, 'Plăți', Icons.payment_rounded, Icons.payment_outlined),
@@ -107,7 +127,14 @@ class _MainLayoutState extends State<MainLayout> {
               child: Row(
                 children: [
                   if (_sidebarExpanded) ...[
-                    const Icon(Icons.account_balance_rounded, color: Colors.white, size: 26),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 30, height: 30,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.account_balance_rounded, color: Colors.white, size: 26),
+                      ),
+                    ),
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(
@@ -122,9 +149,16 @@ class _MainLayoutState extends State<MainLayout> {
                       ),
                     ),
                   ] else ...[
-                    const Expanded(
+                    Expanded(
                       child: Center(
-                        child: Icon(Icons.account_balance_rounded, color: Colors.white, size: 26),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            width: 30, height: 30,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.account_balance_rounded, color: Colors.white, size: 26),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -339,9 +373,29 @@ class _MainLayoutState extends State<MainLayout> {
             ),
           ),
           const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: AppTheme.textGrey),
-            onPressed: () {},
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, color: AppTheme.textGrey),
+                onPressed: () => _showNotificationsPanel(context),
+                tooltip: 'Notificări',
+              ),
+              if (_notifCount > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(color: AppTheme.errorRed, shape: BoxShape.circle),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      '$_notifCount',
+                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 4),
           CircleAvatar(
@@ -361,6 +415,70 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   // ============================================================
+  // NOTIFICATIONS PANEL
+  // ============================================================
+  void _showNotificationsPanel(BuildContext context) {
+    setState(() => _notifCount = 0);
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: const BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.notifications_rounded, color: Colors.white, size: 20),
+                    const SizedBox(width: 10),
+                    const Expanded(child: Text('Notificări', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16, fontFamily: 'Inter'))),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.white70, size: 20), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+              ),
+              _notifTile(Icons.gavel_rounded, 'Licitație nouă publicată', 'Concesionare teren tenis Complex Sibiu', AppTheme.greenMid),
+              const Divider(height: 1),
+              _notifTile(Icons.description_rounded, 'Contract aproape de expirare', 'CONTRACT-2024-001 expiră în 30 de zile', AppTheme.warningOrange),
+              const Divider(height: 1),
+              _notifTile(Icons.assignment_turned_in_rounded, 'Document verificat', 'Extras CF Spatiu Piata Centrala — verificat', AppTheme.successGreen),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    setState(() => _selectedIndex = 9);
+                  },
+                  child: const Text('Vezi jurnal de audit complet', style: TextStyle(color: AppTheme.greenEmerald, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _notifTile(IconData icon, String title, String subtitle, Color color) {
+    return ListTile(
+      leading: Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark, fontFamily: 'Inter')),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: AppTheme.textGrey)),
+    );
+  }
+
+  // ============================================================
   // MOBILE LAYOUT - Bottom nav + Drawer
   // ============================================================
   Widget _buildMobileLayout() {
@@ -369,17 +487,35 @@ class _MainLayoutState extends State<MainLayout> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppTheme.greenDark,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.account_balance_rounded, color: Colors.white, size: 22),
-            SizedBox(width: 8),
-            Text('e-Patrimoniu', style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: Image.asset('assets/images/logo.png', width: 26, height: 26,
+                errorBuilder: (_, __, ___) => const Icon(Icons.account_balance_rounded, color: Colors.white, size: 22)),
+            ),
+            const SizedBox(width: 8),
+            const Text('e-Patrimoniu', style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-            onPressed: () {},
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                onPressed: () => _showNotificationsPanel(context),
+              ),
+              if (_notifCount > 0)
+                Positioned(
+                  right: 6, top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(color: AppTheme.errorRed, shape: BoxShape.circle),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text('$_notifCount', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
+                  ),
+                ),
+            ],
           ),
         ],
       ),

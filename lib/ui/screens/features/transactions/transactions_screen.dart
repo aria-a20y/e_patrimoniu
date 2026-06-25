@@ -5,6 +5,7 @@ import '../../../../core/models/transaction/transaction_model.dart';
 import '../../../../core/services/other_services.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../widgets/shared_widgets.dart';
+import 'transaction_detail.dart';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -144,7 +145,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   Widget _buildTxCard(BuildContext context, TransactionModel t) {
-    return Container(
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TransactionDetailScreen(transaction: t))),
+      child: Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -187,6 +191,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   const SizedBox(width: 8),
                   _metaChip(Icons.calendar_today_outlined, DateFormat('dd.MM.yyyy').format(t.dataTransactie)),
                   const Spacer(),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textGrey),
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert, size: 18, color: AppTheme.textGrey),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -206,7 +211,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _metaChip(IconData icon, String label) {

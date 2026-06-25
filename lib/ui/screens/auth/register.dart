@@ -21,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loading = false;
   bool _obscure = true;
   bool _obscureConfirm = true;
+  UserRole _selectedRole = UserRole.extern;
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -32,7 +33,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         firstName: _firstNameCtl.text.trim(),
         lastName: _lastNameCtl.text.trim(),
         phone: _phoneCtl.text.trim(),
-        role: UserRole.functionar,
+        role: _selectedRole,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -161,6 +162,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 style: const TextStyle(color: Colors.white),
                                 decoration: AuthStyles.inputDecoration('Telefon', context),
                                 keyboardType: TextInputType.phone,
+                              ),
+                              const SizedBox(height: 14),
+                              // Selecție rol
+                              DropdownButtonFormField<UserRole>(
+                                value: _selectedRole,
+                                dropdownColor: const Color(0xFF1B4332),
+                                style: const TextStyle(color: Colors.white, fontFamily: 'Inter'),
+                                decoration: AuthStyles.inputDecoration('Tip cont', context),
+                                items: const [
+                                  DropdownMenuItem(value: UserRole.extern,         child: Text('Utilizator')),
+                                  DropdownMenuItem(value: UserRole.functionar,     child: Text('Funcționar')),
+                                  DropdownMenuItem(value: UserRole.administrator,  child: Text('Administrator')),
+                                ],
+                                onChanged: (v) => setState(() => _selectedRole = v ?? UserRole.extern),
                               ),
                               const SizedBox(height: 14),
                               TextFormField(

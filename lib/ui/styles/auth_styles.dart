@@ -64,18 +64,22 @@ class AuthStyles {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white24, width: 1.5),
-          ),
-          child: Icon(
-            Icons.account_balance_rounded,
-            size: size * 0.55,
-            color: Colors.white,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.asset(
+            'assets/images/logo.png',
+            width: size,
+            height: size,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Container(
+              width: size, height: size,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white24, width: 1.5),
+              ),
+              child: Icon(Icons.account_balance_rounded, size: size * 0.55, color: Colors.white),
+            ),
           ),
         ),
         const SizedBox(height: 14),

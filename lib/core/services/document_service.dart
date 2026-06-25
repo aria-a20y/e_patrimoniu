@@ -48,12 +48,8 @@ class DocumentService {
   /// Obține toate documentele (opțional filtrate după proprietate)
   static Future<List<DocumentModel>> getAll({String? propertyId}) async {
     final query = propertyId != null ? {'propertyId': propertyId} : null;
-    try {
-      final data = await ApiService.get('/api/documents', query: query);
-      return (data as List).map((e) => DocumentModel.fromJson(e as Map<String, dynamic>)).toList();
-    } catch (_) {
-      return [];
-    }
+    final data = await ApiService.get('/api/documents', query: query);
+    return (data as List).map((e) => DocumentModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// Documente asociate unei proprietăți specifice

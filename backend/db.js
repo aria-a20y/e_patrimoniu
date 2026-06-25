@@ -27,15 +27,36 @@ pool.on('error', (err) => {
  * Rulează schema.sql la pornirea serverului.
  * Toate comenzile folosesc IF NOT EXISTS — sigur de apelat de mai multe ori.
  */
+async function migrateSchema() {
+  // Adaugă coloanele noi în tabelele existente dacă lipsesc (migrare sigură).
+  const migrations = [
+    // documents: coloane adăugate după crearea inițială a tabelului
+    `ALTER TABLE documents ADD COLUMN IF NOT EXISTS numar_document TEXT`,
+    `ALTER TABLE documents ADD COLUMN IF NOT EXISTS data_document  DATE`,
+    `ALTER TABLE documents ADD COLUMN IF NOT EXISTS emitent        TEXT`,
+  ];
+  for (const sql of migrations) {
+    try {
+      await pool.query(sql);
+    } catch (err) {
+      console.error('[DB] Eroare migrare:', err.message);
+    }
+  }
+  console.log('[DB] Migrare schema finalizata.');
+}
+
 async function initDb() {
   try {
     const schemaPath = path.join(__dirname, 'schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8');
     await pool.query(schema);
     console.log('[DB] Schema initializata cu succes.');
+    await migrateSchema();
     await seedDb();
     await seedExtra();
     await seedPropertyDocuments();
+    await seedClosedAuctionBids();
+    await seedAdditionalAuditLogs();
   } catch (err) {
     console.error('[DB] Eroare la initializarea schemei:', err.message || err.code || JSON.stringify(err));
   }
@@ -241,6 +262,78 @@ async function seedPropertyDocuments() {
  * Adaugă datele suplimentare (20 proprietăți, 24 tranzacții, 30 contracte, 44 licitații)
  * chiar dacă baza nu e goală.
  */
+/**
+ * Adaugă oferte (bids) pentru licitațiile cu status 'inchisa' sau 'atribuita'.
+ * Fiecare licitație încheiată va avea minim 7 oferte, cu valori crescătoare.
+ * Rulează la fiecare pornire — idempotent (ON CONFLICT DO NOTHING).
+ */
+async function seedClosedAuctionBids() {
+  try {
+    // Obține licitațiile încheiate (inchisa sau atribuita) care au sub 7 oferte
+    const { rows: auctions } = await pool.query(`
+      SELECT a.id, a.pret_pornire, a.pas_licitare,
+             COUNT(b.id) AS bid_count
+      FROM auctions a
+      LEFT JOIN bids b ON b.auction_id = a.id
+      WHERE a.status IN ('inchisa', 'atribuita')
+      GROUP BY a.id, a.pret_pornire, a.pas_licitare
+      HAVING COUNT(b.id) < 7
+    `);
+
+    if (auctions.length === 0) {
+      console.log('[DB] Licitații încheiate: toate au deja minim 7 oferte.');
+      return;
+    }
+
+    const participants = [
+      { id: 'user_ext_001', nume: 'George Marinescu / SC Alfa SRL' },
+      { id: 'user_ext_002', nume: 'Ana Gheorghe / SC Beta SRL' },
+      { id: 'user_ext_003', nume: 'Radu Popa / SC Omega SRL' },
+    ];
+
+    for (const auction of auctions) {
+      const existing = parseInt(auction.bid_count, 10);
+      const needed   = 7 - existing;
+      const pas      = parseFloat(auction.pas_licitare) || 50;
+      let baseVal    = parseFloat(auction.pret_pornire) + (existing + 1) * pas;
+
+      for (let i = 0; i < needed; i++) {
+        const p = participants[i % participants.length];
+        const val = (baseVal + i * pas).toFixed(2);
+        const daysAgo = needed - i;
+        await pool.query(`
+          INSERT INTO bids (auction_id, participant_id, participant_nume, valoare, data_ora, validata, respinsa)
+          VALUES ($1, $2, $3, $4, NOW() - ($5 || ' days')::INTERVAL, TRUE, FALSE)
+          ON CONFLICT DO NOTHING
+        `, [auction.id, p.id, p.nume, val, daysAgo]);
+      }
+    }
+    console.log(`[DB] Oferte adăugate pentru ${auctions.length} licitații încheiate.`);
+  } catch (err) {
+    console.error('[DB] Eroare seedClosedAuctionBids:', err.message || err);
+  }
+}
+
+/**
+ * Adaugă 4 intrări noi în jurnal de audit la fiecare pornire (dacă nu există).
+ * Idempotent — folosește ID-uri fixe cu ON CONFLICT DO NOTHING.
+ */
+async function seedAdditionalAuditLogs() {
+  try {
+    await pool.query(`
+      INSERT INTO audit_log (id, user_id, user_name, actiune, entitate, entitate_id, detalii, ip_address) VALUES
+      ('ac000001-0001-0001-0001-000000000001','user_admin_001','Alexandru Ionescu','UPDATE','contracts', 'c0000002-0002-0002-0002-000000000002','Actualizat contract concesionare teren industrial: prelungire 5 ani','192.168.1.100'),
+      ('ac000002-0002-0002-0002-000000000002','user_func_001', 'Maria Popescu',   'CREATE','documents', 'da000008-0008-0008-0008-000000000008','Incarcat act aditional contract Alfa SRL, modificare valoare chirie','192.168.1.101'),
+      ('ac000003-0003-0003-0003-000000000003','user_admin_002','Cristina Moldovan','UPDATE','users',    'user_ext_001','Actualizat status utilizator George Marinescu: extern -> activ verificat','192.168.1.104'),
+      ('ac000004-0004-0004-0004-000000000004','user_func_002', 'Ion Dumitrescu',  'CREATE','auctions',  'd000000b-000b-000b-000b-00000000000b','Publicata licitatie concesionare teren tenis Complex Sibiu','192.168.1.102')
+      ON CONFLICT (id) DO NOTHING
+    `);
+    console.log('[DB] Jurnale de audit suplimentare inserate (4 înregistrări).');
+  } catch (err) {
+    console.error('[DB] Eroare seedAdditionalAuditLogs:', err.message || err);
+  }
+}
+
 async function seedExtra() {
   try {
     const seedExtraPath = path.join(__dirname, 'seed_extra.sql');
