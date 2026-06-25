@@ -56,8 +56,7 @@ async function initDb() {
     await seedExtra();
     await seedPropertyDocuments();
     await seedClosedAuctionBids();
-    await seedAdditionalAuditLogs();
-    await seedExtraAuditLogs();
+    await seedAuditLog();
     await seedBidCriteria();
   } catch (err) {
     console.error('[DB] Eroare la initializarea schemei:', err.message || err.code || JSON.stringify(err));
@@ -201,22 +200,7 @@ async function seedDb() {
     `);
 
     // ââ 9. AUDIT_LOG (10 intrari) âââââââââââââââââââââââââââââââââââââââââââââ
-    await pool.query(`
-      INSERT INTO audit_log (id, user_id, user_name, actiune, entitate, entitate_id, detalii, ip_address) VALUES
-      ('ab000001-0001-0001-0001-000000000001','user_admin_001','Alexandru Ionescu','CREATE','properties',  'a0000001-0001-0001-0001-000000000001','Adaugat bun imobil: Teren Str. Florilor nr. 12',              '192.168.1.100'),
-      ('ab000002-0002-0002-0002-000000000002','user_func_001', 'Maria Popescu',   'CREATE','contracts',   'c0000001-0001-0001-0001-000000000001','Creat contract inchiriere SC Alfa SRL, valoare 4800 RON',      '192.168.1.101'),
-      ('ab000003-0003-0003-0003-000000000003','user_admin_001','Alexandru Ionescu','CREATE','auctions',    'd0000001-0001-0001-0001-000000000001','Publicata licitatie spatiu comercial Piata Centrala 2025',    '192.168.1.100'),
-      ('ab000004-0004-0004-0004-000000000004','user_ext_001',  'George Marinescu','CREATE','bids',        'e0000003-0003-0003-0003-000000000003','Depusa oferta 2800 RON la licitatia spatiu comercial',        '10.0.0.55'),
-      ('ab000005-0005-0005-0005-000000000005','user_admin_001','Alexandru Ionescu','UPDATE','auctions',    'd0000001-0001-0001-0001-000000000001','Atribuit castigator: George Marinescu, oferta 2800 RON',      '192.168.1.100'),
-      ('ab000006-0006-0006-0006-000000000006','user_func_002', 'Ion Dumitrescu',  'CREATE','transactions','b0000002-0002-0002-0002-000000000002','Initiata tranzactie concesionare teren industrial Brasov',    '192.168.1.102'),
-      ('ab000007-0007-0007-0007-000000000007','user_func_003', 'Elena Constantin','UPDATE','properties',  'a0000002-0002-0002-0002-000000000002','Actualizata valoare inventar cladire: 1.500.000 RON',         '192.168.1.103'),
-      ('ab000008-0008-0008-0008-000000000008','user_func_001', 'Maria Popescu',   'CREATE','documents',   'da000003-0003-0003-0003-000000000003','Incarcat document: Contract inchiriere SC Alfa SRL 2024-2027','192.168.1.101'),
-      ('ab000009-0009-0009-0009-000000000009','user_admin_001','Alexandru Ionescu','VIEW',  'reports',     NULL,                                 'Generat raport situatie contracte active - iunie 2024',       '192.168.1.100'),
-      ('ab000010-000a-000a-000a-00000000000a','user_ext_002',  'Ana Gheorghe',    'CREATE','bids',        'e0000006-0006-0006-0006-000000000006','Depusa oferta 525 RON la licitatia sali conferinta',          '10.0.0.66'),
-      ('ab000011-000b-000b-000b-00000000000b','user_admin_002','Cristina Moldovan','CREATE','users',       'user_ext_003',                       'Cont extern creat pentru Radu Popa / SC Office Space SRL',    '192.168.1.104'),
-      ('ab000012-000c-000c-000c-00000000000c','user_func_002', 'Ion Dumitrescu',  'CREATE','properties',  'a0000008-0008-0008-0008-000000000008','Inregistrat teren extravilan in litigiu, dosar nr. 1234/2024','192.168.1.102')
-      ON CONFLICT (id) DO NOTHING
-    `);
+    // Audit log: gestionat de seedAuditLog()
 
     console.log('[DB] Date demo inserate cu succes! (8 tabele populate, minim 7 randuri fiecare)');
   } catch (err) {
@@ -316,41 +300,23 @@ async function seedClosedAuctionBids() {
 }
 
 /**
- * Adaugă 4 intrări noi în jurnal de audit la fiecare pornire (dacă nu există).
- * Idempotent — folosește ID-uri fixe cu ON CONFLICT DO NOTHING.
+ * Jurnal de audit — resetează la exact 3 înregistrări reprezentative.
+ * Șterge toate intrările existente și inserează cele 3 fixe.
+ * Rulează la fiecare pornire a serverului.
  */
-async function seedAdditionalAuditLogs() {
+async function seedAuditLog() {
   try {
+    await pool.query(`DELETE FROM audit_log`);
     await pool.query(`
       INSERT INTO audit_log (id, user_id, user_name, actiune, entitate, entitate_id, detalii, ip_address) VALUES
-      ('ac000001-0001-0001-0001-000000000001','user_admin_001','Alexandru Ionescu','UPDATE','contracts', 'c0000002-0002-0002-0002-000000000002','Actualizat contract concesionare teren industrial: prelungire 5 ani','192.168.1.100'),
-      ('ac000002-0002-0002-0002-000000000002','user_func_001', 'Maria Popescu',   'CREATE','documents', 'da000008-0008-0008-0008-000000000008','Incarcat act aditional contract Alfa SRL, modificare valoare chirie','192.168.1.101'),
-      ('ac000003-0003-0003-0003-000000000003','user_admin_002','Cristina Moldovan','UPDATE','users',    'user_ext_001','Actualizat status utilizator George Marinescu: extern -> activ verificat','192.168.1.104'),
-      ('ac000004-0004-0004-0004-000000000004','user_func_002', 'Ion Dumitrescu',  'CREATE','auctions',  'd000000b-000b-000b-000b-00000000000b','Publicata licitatie concesionare teren tenis Complex Sibiu','192.168.1.102')
+      ('al000001-0001-0001-0001-000000000001','user_admin_001','Alexandru Ionescu','CREATE','properties','a0000001-0001-0001-0001-000000000001','Adaugat bun imobil: Teren Str. Florilor nr. 12','192.168.1.100'),
+      ('al000002-0002-0002-0002-000000000002','user_func_001', 'Maria Popescu',   'CREATE','contracts', 'c0000001-0001-0001-0001-000000000001','Creat contract inchiriere SC Alfa SRL, valoare 4800 RON','192.168.1.101'),
+      ('al000003-0003-0003-0003-000000000003','user_admin_001','Alexandru Ionescu','UPDATE','auctions',  'd0000001-0001-0001-0001-000000000001','Atribuit castigator licitatie spatiu comercial: George Marinescu, 2800 RON','192.168.1.100')
       ON CONFLICT (id) DO NOTHING
     `);
-    console.log('[DB] Jurnale de audit suplimentare inserate (4 înregistrări).');
+    console.log('[DB] Jurnal audit resetat: 3 inregistrari.');
   } catch (err) {
-    console.error('[DB] Eroare seedAdditionalAuditLogs:', err.message || err);
-  }
-}
-
-/**
- * Adaugă 3 intrări noi în jurnal de audit (ID-uri ac000005–ac000007).
- * Idempotent — ON CONFLICT DO NOTHING.
- */
-async function seedExtraAuditLogs() {
-  try {
-    await pool.query(`
-      INSERT INTO audit_log (id, user_id, user_name, actiune, entitate, entitate_id, detalii, ip_address) VALUES
-      ('ac000005-0005-0005-0005-000000000005','user_admin_001','Alexandru Ionescu','UPDATE','auctions',   'd0000003-0003-0003-0003-000000000003','Actualizat status licitatie Parc Tineretului: draft -> publicata',    '192.168.1.100'),
-      ('ac000006-0006-0006-0006-000000000006','user_func_003', 'Elena Constantin', 'CREATE','documents',  'da000005-0005-0005-0005-000000000005','Incarcat raport evaluare imobil Cladire Primarie Sector 2',           '192.168.1.103'),
-      ('ac000007-0007-0007-0007-000000000007','user_admin_002','Cristina Moldovan','UPDATE','contracts',  'c0000007-0007-0007-0007-000000000007','Actualizat nota contract Construct Plus SRL: include utilitati luna 1','192.168.1.104')
-      ON CONFLICT (id) DO NOTHING
-    `);
-    console.log('[DB] 3 jurnale de audit extra inserate (ac000005–ac000007).');
-  } catch (err) {
-    console.error('[DB] Eroare seedExtraAuditLogs:', err.message || err);
+    console.error('[DB] Eroare seedAuditLog:', err.message || err);
   }
 }
 
