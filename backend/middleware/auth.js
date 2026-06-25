@@ -3,9 +3,9 @@
 const { pool } = require('../db');
 
 /**
- * verifyToken — middleware
- * Decodifică Firebase ID token (JWT) local, fără apeluri HTTP externe.
- * Verifică: structura, expirarea, issuer-ul și audience-ul tokenului.
+ * Decodifică și validează un Firebase JWT local (fără rețea).
+ * Verifică: structura, exp, iat, iss, aud.
+ * NU verifică semnătura RS256 (Render blochează googleapis.com).
  */
 function decodeAndValidateJwt(token) {
   try {
@@ -20,30 +20,28 @@ function decodeAndValidateJwt(token) {
     if (payload.iss !== 'https://securetoken.google.com/e-patrimoniu') return null;
     if (payload.aud !== 'e-patrimoniu') return null;
     return payload;
-  } catch (_) {
-    return null;
-  }
+  } catch (_) { return null; }
 }
 
+/**
+ * verifyToken — middleware
+ * Verifică Firebase ID token din `Authorization: Bearer <token>`,
+ * citește utilizatorul din PostgreSQL și atașează:
+ *   req.uid       — Firebase UID
+ *   req.userRole  — 'administrator' | 'functionar' | 'extern'
+ *   req.userName  — nume complet sau email
+ */
 async function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token de autentificare lipsă.' });
   }
-
   const token = authHeader.split('Bearer ')[1];
-
   try {
     const payload = decodeAndValidateJwt(token);
-    if (!payload) {
-      return res.status(401).json({ error: 'Token invalid.' });
-    }
-
+    if (!payload) return res.status(401).json({ error: 'Token invalid.' });
     const uid = payload.uid || payload.sub;
-    if (!uid) {
-      return res.status(401).json({ error: 'Token invalid.' });
-    }
-
+    if (!uid) return res.status(401).json({ error: 'Token invalid.' });
     req.uid = uid;
 
     const { rows } = await pool.query(
@@ -59,15 +57,13 @@ async function verifyToken(req, res, next) {
       const name = payload.name || '';
       const nameParts = name.trim().split(/\s+/);
       const firstName = nameParts[0] || email.split('@')[0] || 'Utilizator';
-      const lastName  = nameParts.slice(1).join(' ') || '';
-
+      const lastName = nameParts.slice(1).join(' ') || '';
       await pool.query(
         `INSERT INTO users (uid, "firstName", "lastName", email, role, status)
          VALUES ($1, $2, $3, $4, $5, 'activ')
          ON CONFLICT (uid) DO NOTHING`,
         [uid, firstName, lastName, email, role]
       );
-
       req.userRole = role;
       req.userName = name || email || uid;
       return next();
@@ -77,12 +73,10 @@ async function verifyToken(req, res, next) {
     if (user.status !== 'activ') {
       return res.status(403).json({ error: 'Contul este dezactivat sau suspendat.' });
     }
-
     req.userRole = user.role;
     req.userName = user.firstName
       ? `${user.firstName} ${user.lastName}`.trim()
       : (payload.email ?? uid);
-
     next();
   } catch (err) {
     console.error('verifyToken error:', err.message);
