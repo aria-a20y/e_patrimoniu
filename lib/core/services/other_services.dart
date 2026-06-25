@@ -158,6 +158,24 @@ class BidCriterion {
     isMet: d['isMet'] as bool? ?? false,
   );
 
+  static const List<String> _labels = [
+    '',
+    'Capacitate financiară și bonitate dovedită',
+    'Experiență relevantă în domeniu (min. 3 ani)',
+    'Personal calificat și certificat disponibil',
+    'Dotare tehnică corespunzătoare activității',
+    'Garanție de participare achitată integral',
+    'Documentație tehnică completă și conformă',
+    'Referințe pozitive de la beneficiari anteriori',
+    'Respectarea cerințelor de mediu și SSM',
+    'Ofertă financiară în limitele bugetului aprobat',
+    'Termen de execuție/livrare fezabil și realist',
+  ];
+
+  String get label => criterionIndex >= 1 && criterionIndex <= 10
+      ? _labels[criterionIndex]
+      : 'Criteriu $criterionIndex';
+
   static const List<String> labels = [
     'Prețul / redevența oferită',
     'Destinația propusă',
