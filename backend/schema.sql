@@ -165,6 +165,15 @@ CREATE TABLE IF NOT EXISTS documents (
   uploaded_by       TEXT          REFERENCES users(uid) ON DELETE SET NULL
 );
 
+-- BID CRITERIA -- criterii de evaluare per ofertant (10 criterii, minim 7 = acceptat)
+CREATE TABLE IF NOT EXISTS bid_criteria (
+  id              UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  bid_id          UUID    NOT NULL REFERENCES bids(id) ON DELETE CASCADE,
+  criterion_index INTEGER NOT NULL CHECK (criterion_index BETWEEN 1 AND 10),
+  is_met          BOOLEAN NOT NULL DEFAULT FALSE,
+  UNIQUE (bid_id, criterion_index)
+);
+
 -- AUDIT LOG -- jurnal actiuni utilizatori
 CREATE TABLE IF NOT EXISTS audit_log (
   id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -230,3 +239,4 @@ CREATE INDEX IF NOT EXISTS idx_documents_status         ON documents(status);
 CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp      ON audit_log(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_log_user           ON audit_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_entitate       ON audit_log(entitate);
+CREATE INDEX IF NOT EXISTS idx_bid_criteria_bid ON bid_criteria(bid_id);
