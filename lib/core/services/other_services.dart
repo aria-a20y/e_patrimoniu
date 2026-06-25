@@ -136,4 +136,42 @@ class AuctionService {
   static Future<void> registerAsParticipant(String auctionId) async {
     await ApiService.post('/api/auctions/$auctionId/participants', {});
   }
+
+  /// Returnează cele 10 criterii de evaluare ale unui ofertant (BidCriterion list)
+  static Future<List<BidCriterion>> getBidCriteria(String auctionId, String bidId) async {
+    final data = await ApiService.get('/api/auctions/$auctionId/bids/$bidId/criteria');
+    return (data as List).map((e) => BidCriterion.fromJson(e as Map<String, dynamic>)).toList();
+  }
+}
+
+// ============================================================
+// MODEL: BidCriterion
+// ============================================================
+class BidCriterion {
+  final int criterionIndex;
+  final bool isMet;
+
+  const BidCriterion({required this.criterionIndex, required this.isMet});
+
+  factory BidCriterion.fromJson(Map<String, dynamic> d) => BidCriterion(
+    criterionIndex: (d['criterionIndex'] as num).toInt(),
+    isMet: d['isMet'] as bool? ?? false,
+  );
+
+  static const List<String> labels = [
+    'Prețul / redevența oferită',
+    'Destinația propusă',
+    'Planul de investiții',
+    'Capacitatea financiară',
+    'Experiența profesională',
+    'Termenele de plată',
+    'Angajamente locuri de muncă',
+    'Norme de mediu',
+    'Garanții suplimentare',
+    'Durata contractului',
+  ];
+
+  String get label => criterionIndex >= 1 && criterionIndex <= 10
+      ? labels[criterionIndex - 1]
+      : 'Criteriu $criterionIndex';
 }

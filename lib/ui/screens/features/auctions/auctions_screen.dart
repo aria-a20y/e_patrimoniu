@@ -5,6 +5,7 @@ import '../../../../core/models/auction/auction_model.dart';
 import '../../../../core/services/other_services.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../widgets/shared_widgets.dart';
+import 'bidder_profile_screen.dart';
 
 class AuctionsScreen extends StatefulWidget {
   const AuctionsScreen({super.key});
@@ -275,8 +276,8 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Oferte: ${a.titlu}', style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 16)),
         content: SizedBox(
-          width: 500,
-          height: 300,
+          width: 540,
+          height: 360,
           child: FutureBuilder<List<BidModel>>(
             future: AuctionService.getBids(a.id),
             builder: (context, snap) {
@@ -285,16 +286,58 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
               if (bids.isEmpty) return const Center(child: Text('Nicio ofertă depusă', style: TextStyle(color: AppTheme.textGrey)));
               return ListView.separated(
                 itemCount: bids.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+                separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.borderColor),
                 itemBuilder: (_, i) {
                   final b = bids[i];
-                  return ListTile(
-                    leading: CircleAvatar(radius: 18, backgroundColor: AppTheme.greenPale,
-                      child: Text('${i + 1}', style: const TextStyle(color: AppTheme.greenDark, fontWeight: FontWeight.w700, fontSize: 12))),
-                    title: Text(b.participantNume, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600)),
-                    subtitle: Text(DateFormat('dd.MM.yyyy HH:mm').format(b.dataOra), style: const TextStyle(fontSize: 11)),
-                    trailing: Text('${b.valoare.toStringAsFixed(0)} RON',
-                      style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.greenEmerald)),
+                  final isWinner = a.castigatorId != null && b.participantId == a.castigatorId;
+                  return Container(
+                    color: isWinner ? AppTheme.warningOrange.withValues(alpha: 0.04) : null,
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: isWinner
+                            ? AppTheme.warningOrange.withValues(alpha: 0.15)
+                            : AppTheme.greenPale,
+                        child: isWinner
+                            ? const Icon(Icons.emoji_events_rounded, color: AppTheme.warningOrange, size: 16)
+                            : Text('${i + 1}', style: const TextStyle(color: AppTheme.greenDark, fontWeight: FontWeight.w700, fontSize: 12)),
+                      ),
+                      title: Text(b.participantNume, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600)),
+                      subtitle: Text(DateFormat('dd.MM.yyyy HH:mm').format(b.dataOra), style: const TextStyle(fontSize: 11)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('${b.valoare.toStringAsFixed(0)} RON',
+                            style: TextStyle(
+                              fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w700,
+                              color: isWinner ? AppTheme.warningOrange : AppTheme.greenEmerald,
+                            )),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => BidderProfileScreen(
+                                    bid: b,
+                                    auctionId: a.id,
+                                    isWinner: isWinner,
+                                  ),
+                                ),
+                              );
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppTheme.infoBlue,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text('Profil', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 },
               );

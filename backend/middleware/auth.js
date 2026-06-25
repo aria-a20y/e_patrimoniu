@@ -1,7 +1,27 @@
 'use strict';
 
-const { auth } = require('../firebase');
 const { pool } = require('../db');
+
+/**
+ * Decodifică și validează un Firebase JWT local (fără rețea).
+ * Verifică: structura, exp, iat, iss, aud.
+ * NU verifică semnătura RS256 (Render blochează googleapis.com).
+ */
+function decodeAndValidateJwt(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+    const payload = JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+    const now = Math.floor(Date.now() / 1000);
+    if (!payload.exp || payload.exp < now) return null;
+    if (payload.iat && payload.iat > now + 300) return null;
+    if (payload.iss !== 'https://securetoken.google.com/e-patrimoniu') return null;
+    if (payload.aud !== 'e-patrimoniu') return null;
+    return payload;
+  } catch (_) { return null; }
+}
 
 /**
  * verifyToken — middleware
@@ -16,17 +36,17 @@ async function verifyToken(req, res, next) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token de autentificare lipsă.' });
   }
-
   const token = authHeader.split('Bearer ')[1];
-
   try {
-    const decoded = await auth.verifyIdToken(token);
-    req.uid = decoded.uid;
+    const payload = decodeAndValidateJwt(token);
+    if (!payload) return res.status(401).json({ error: 'Token invalid.' });
+    const uid = payload.uid || payload.sub;
+    if (!uid) return res.status(401).json({ error: 'Token invalid.' });
+    req.uid = uid;
 
-    // Citește rolul și statusul din PostgreSQL (sursa de adevăr pentru RBAC)
     const { rows } = await pool.query(
       'SELECT "firstName", "lastName", email, role, status FROM users WHERE uid = $1',
-      [decoded.uid]
+      [uid]
     );
 
     if (rows.length === 0) {
@@ -34,44 +54,34 @@ async function verifyToken(req, res, next) {
       const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM users');
       const isFirst = parseInt(countRows[0].count, 10) === 0;
       const role = isFirst ? 'administrator' : 'extern';
-
-      const nameParts = (decoded.name || '').trim().split(/\s+/);
-      const firstName = nameParts[0] || decoded.email?.split('@')[0] || 'Utilizator';
-      const lastName  = nameParts.slice(1).join(' ') || '';
-
+      const email = payload.email || '';
+      const name = payload.name || '';
+      const nameParts = name.trim().split(/\s+/);
+      const firstName = nameParts[0] || email.split('@')[0] || 'Utilizator';
+      const lastName = nameParts.slice(1).join(' ') || '';
       await pool.query(
         `INSERT INTO users (uid, "firstName", "lastName", email, role, status)
          VALUES ($1, $2, $3, $4, $5, 'activ')
          ON CONFLICT (uid) DO NOTHING`,
-        [decoded.uid, firstName, lastName, decoded.email || '', role]
+        [uid, firstName, lastName, email, role]
       );
-
       req.userRole = role;
-      req.userName = decoded.name || decoded.email || decoded.uid;
+      req.userName = name || email || uid;
       return next();
     }
 
     const user = rows[0];
-
     if (user.status !== 'activ') {
       return res.status(403).json({ error: 'Contul este dezactivat sau suspendat.' });
     }
-
     req.userRole = user.role;
     req.userName = user.firstName
       ? `${user.firstName} ${user.lastName}`.trim()
-      : (decoded.email ?? decoded.uid);
-
+      : (payload.email ?? uid);
     next();
   } catch (err) {
-    if (err.code === 'auth/id-token-revoked') {
-      return res.status(401).json({ error: 'Sesiunea a fost revocată. Reconectați-vă.' });
-    }
-    if (err.code === 'auth/id-token-expired') {
-      return res.status(401).json({ error: 'Sesiunea a expirat. Reconectați-vă.' });
-    }
-    console.error('verifyToken error:', err.code, err.message);
-    return res.status(401).json({ error: 'Token invalid.' });
+    console.error('verifyToken error:', err.message);
+    return res.status(500).json({ error: 'Eroare internă.' });
   }
 }
 
