@@ -5,6 +5,7 @@ import '../../../../core/models/contract/contract_model.dart';
 import '../../../../core/services/other_services.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../widgets/shared_widgets.dart';
+import 'contract_detail.dart';
 
 class ContractsScreen extends StatefulWidget {
   const ContractsScreen({super.key});
@@ -158,7 +159,9 @@ class _ContractsScreenState extends State<ContractsScreen> {
   Widget _buildTableRow(BuildContext context, ContractModel c) {
     final daysLeft = c.dataFinal.difference(DateTime.now()).inDays;
     final isExpiringSoon = daysLeft >= 0 && daysLeft <= 30;
-    return Container(
+    return InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ContractDetailScreen(contract: c))),
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: isExpiringSoon ? AppTheme.warningOrange.withValues(alpha: 0.03) : null,
@@ -188,11 +191,14 @@ class _ContractsScreenState extends State<ContractsScreen> {
           },
         )),
       ]),
-    );
+    ));
   }
 
   Widget _buildCard(BuildContext context, ContractModel c) {
-    return Container(
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ContractDetailScreen(contract: c))),
+      child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)]),
@@ -200,6 +206,7 @@ class _ContractsScreenState extends State<ContractsScreen> {
         Row(children: [
           Expanded(child: Text(c.numarContract, style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textDark))),
           StatusBadge(label: c.status.label, color: _statusColor(c.status)),
+          const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.textGrey),
         ]),
         const SizedBox(height: 6),
         Text(c.parteContractanta, style: const TextStyle(fontSize: 13, color: AppTheme.textDark, fontWeight: FontWeight.w500)),
@@ -215,7 +222,7 @@ class _ContractsScreenState extends State<ContractsScreen> {
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.greenEmerald)),
         ]),
       ]),
-    );
+    ));
   }
 
   void _showAddDialog(BuildContext context) {
