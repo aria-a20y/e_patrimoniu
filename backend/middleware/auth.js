@@ -50,7 +50,6 @@ async function verifyToken(req, res, next) {
     );
 
     if (rows.length === 0) {
-      // Auto-creare user la primul login Firebase
       const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM users');
       const isFirst = parseInt(countRows[0].count, 10) === 0;
       const role = isFirst ? 'administrator' : 'extern';
@@ -85,9 +84,6 @@ async function verifyToken(req, res, next) {
   }
 }
 
-/**
- * requireRole(...roles) — factory pentru middleware de guard pe rol
- */
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!roles.includes(req.userRole)) {
