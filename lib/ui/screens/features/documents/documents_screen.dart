@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:typed_data';
 import '../../../theme/app_theme.dart';
 import '../../../../core/models/document/document_model.dart';
@@ -311,14 +312,24 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
             ])),
           ],
           onSelected: (action) async {
-            if (action == 'verify') {
+            if (action == 'view') {
+              final url = Uri.parse(DocumentService.getFileUrl(doc.id));
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              } else if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Nu s-a putut deschide fișierul'),
+                  backgroundColor: AppTheme.errorRed,
+                ));
+              }
+            } else if (action == 'verify') {
               await DocumentService.updateStatus(doc.id, DocumentStatus.verificat);
               _loadData();
             } else if (action == 'delete') {
               if (!mounted) return;
               final ok = await showConfirmDialog(context, title: 'Ștergere document', content: 'Sigur doriți să ștergeți "${doc.denumire}"?');
               if (ok == true) {
-                await DocumentService.delete(doc.id, doc.fileUrl);
+                await DocumentService.delete(doc.id);
                 _loadData();
               }
             }

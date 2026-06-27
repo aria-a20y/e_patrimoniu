@@ -241,3 +241,6 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_user           ON audit_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_entitate       ON audit_log(entitate);
 
 CREATE INDEX IF NOT EXISTS idx_bid_criteria_bid         ON bid_criteria(bid_id);
+
+-- Stocare fișiere binar direct în PostgreSQL (fără Firebase Storage)
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS file_data BYTEA;

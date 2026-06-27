@@ -10,10 +10,9 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # --- Firebase ---
+  # --- Firebase (auth only — Firebase Storage eliminat, fișiere stocate în PostgreSQL) ---
   firebase_core: ^4.2.1
   firebase_auth: ^6.1.2
-  firebase_storage: ^13.0.4
 
   # --- UI & Vizualizare ---
   flutter_svg: ^2.0.12
