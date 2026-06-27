@@ -6,8 +6,8 @@ const { verifyToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET /api/audit — admin only
-router.get('/', verifyToken, requireAdmin, async (req, res) => {
+// GET /api/audit — toti utilizatorii autentificati
+router.get('/', verifyToken, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit ?? '200', 10), 500);
     const { rows } = await pool.query(
