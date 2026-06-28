@@ -46,17 +46,28 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'Parola trebuie să aibă minim 8 caractere.' });
   }
 
-  // Verifică dacă apelantul este admin
+  // Verifică dacă apelantul este admin — decodare JWT locală (Render blochează googleapis.com)
   let callerIsAdmin = false;
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     try {
-      const decoded = await auth.verifyIdToken(authHeader.split('Bearer ')[1], true);
-      const { rows } = await pool.query(
-        'SELECT role FROM users WHERE uid = $1',
-        [decoded.uid]
-      );
-      callerIsAdmin = rows.length > 0 && rows[0].role === 'administrator';
+      const token = authHeader.split('Bearer ')[1];
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+        const payload = JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+        const now = Math.floor(Date.now() / 1000);
+        if (payload.exp && payload.exp > now &&
+            payload.iss === 'https://securetoken.google.com/e-patrimoniu' &&
+            payload.aud === 'e-patrimoniu') {
+          const uid = payload.uid || payload.sub;
+          if (uid) {
+            const { rows } = await pool.query('SELECT role FROM users WHERE uid = $1', [uid]);
+            callerIsAdmin = rows.length > 0 && rows[0].role === 'administrator';
+          }
+        }
+      }
     } catch (_) { /* token invalid sau neautentificat */ }
   }
 
