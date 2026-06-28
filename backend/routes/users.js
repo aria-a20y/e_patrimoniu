@@ -99,6 +99,50 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// PUT /api/users/me — update own profile
+router.put('/me', verifyToken, async (req, res) => {
+  const { firstName, lastName, phone, departament } = req.body;
+  if (!firstName || !lastName) {
+    return res.status(400).json({ error: 'Prenume și nume sunt obligatorii.' });
+  }
+  try {
+    const result = await pool.query(
+      'UPDATE users SET "firstName" = $1, "lastName" = $2, phone = $3, departament = $4 WHERE uid = $5',
+      [firstName.trim(), lastName.trim(), (phone ?? '').trim(), departament ?? null, req.uid]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Utilizator negăsit.' });
+    await auth.updateUser(req.uid, { displayName: `${firstName.trim()} ${lastName.trim()}`.trim() });
+    await writeAuditLog({
+      userId: req.uid, userName: req.userName,
+      actiune: 'modificare', entitate: 'Utilizator', entitateId: req.uid,
+      detalii: `Profil actualizat: ${firstName.trim()} ${lastName.trim()}`,
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('PUT /users/me:', err);
+    res.status(500).json({ error: 'Eroare server.' });
+  }
+});
+
+// DELETE /api/users/me — delete own account
+router.delete('/me', verifyToken, async (req, res) => {
+  const uid = req.uid;
+  const userName = req.userName;
+  try {
+    await pool.query('DELETE FROM users WHERE uid = $1', [uid]);
+    await auth.deleteUser(uid);
+    await writeAuditLog({
+      userId: uid, userName,
+      actiune: 'stergere', entitate: 'Utilizator', entitateId: uid,
+      detalii: `Cont șters de utilizator`,
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('DELETE /users/me:', err);
+    res.status(500).json({ error: 'Eroare la ștergerea contului.' });
+  }
+});
+
 // PUT /api/users/:uid/role — admin only
 router.put('/:uid/role', verifyToken, requireAdmin, async (req, res) => {
   const { uid } = req.params;

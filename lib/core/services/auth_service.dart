@@ -119,13 +119,22 @@ class AuthService {
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('Utilizator neautentificat');
-    await user.updateDisplayName('$firstName $lastName');
-    await ApiService.put('/api/users/${user.uid}', {
+    await ApiService.put('/api/users/me', {
       'firstName': firstName.trim(),
       'lastName': lastName.trim(),
       'phone': phone.trim(),
       'departament': departament,
     });
+    // Reîncarcă token-ul pentru a reflecta noul displayName din Firebase
+    await user.reload();
+  }
+
+  static Future<void> deleteAccount() async {
+    await ApiService.delete('/api/users/me');
+    // Backend-ul a șters utilizatorul din Firebase Auth; deconectăm clientul
+    await _auth.signOut();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
   }
 
   static Future<void> updateUserStatus(String uid, UserStatus status) async {

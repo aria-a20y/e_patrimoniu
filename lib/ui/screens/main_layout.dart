@@ -14,6 +14,7 @@ import 'features/ai/ai_assistant_screen.dart';
 import 'features/users/users_screen.dart';
 import 'features/audit/audit_screen.dart';
 import 'features/coming_soon_screen.dart';
+import 'features/profile/profile_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -260,49 +261,57 @@ class _MainLayoutState extends State<MainLayout> {
 
   Widget _buildSidebarFooter() {
     final user = FirebaseAuth.instance.currentUser;
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        mainAxisAlignment: _sidebarExpanded ? MainAxisAlignment.start : MainAxisAlignment.center,
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: AppTheme.greenLight.withValues(alpha: 0.3),
-            child: Text(
-              (user?.displayName?.isNotEmpty == true
-                  ? user!.displayName![0]
-                  : user?.email?[0] ?? 'U')
-                  .toUpperCase(),
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
-            ),
-          ),
-          if (_sidebarExpanded) ...[
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    user?.displayName ?? 'Utilizator',
-                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    user?.email ?? '',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+    final initials = (user?.displayName?.isNotEmpty == true
+        ? user!.displayName![0]
+        : user?.email?[0] ?? 'U').toUpperCase();
+
+    return Tooltip(
+      message: _sidebarExpanded ? '' : 'Contul meu',
+      child: InkWell(
+        onTap: () => showProfileDialog(context),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            mainAxisAlignment: _sidebarExpanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: AppTheme.greenLight.withValues(alpha: 0.3),
+                child: Text(
+                  initials,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout_rounded, color: Colors.white54, size: 18),
-              onPressed: () => FirebaseAuth.instance.signOut(),
-              tooltip: 'Deconectare',
-            ),
-          ],
-        ],
+              if (_sidebarExpanded) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        user?.displayName ?? 'Utilizator',
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        user?.email ?? '',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.logout_rounded, color: Colors.white54, size: 18),
+                  onPressed: () => FirebaseAuth.instance.signOut(),
+                  tooltip: 'Deconectare',
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

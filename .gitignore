@@ -31,14 +31,9 @@ Thumbs.db
 .idea/
 *.iml
 
-# Flutter (fișiere rămase)
+# Flutter
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-lib/
-test/
-pubspec.yaml
-pubspec.lock
-analysis_options.yaml
