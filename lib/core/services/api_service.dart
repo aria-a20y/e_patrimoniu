@@ -47,6 +47,24 @@ class ApiService {
     return _handle(resp);
   }
 
+  /// Versiune fără autentificare obligatorie — tokenul e adăugat doar dacă
+  /// există un utilizator deja autentificat (ex: admin care creează alt cont).
+  static Future<dynamic> postPublic(String path, Map<String, dynamic> body) async {
+    String? token;
+    try {
+      token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    } catch (_) {}
+    final headers = {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+    final uri  = _base.resolve(path);
+    final resp = await http
+        .post(uri, headers: headers, body: jsonEncode(body))
+        .timeout(AppConfig.connectionTimeout);
+    return _handle(resp);
+  }
+
   static Future<dynamic> put(String path, Map<String, dynamic> body) async {
     final token = await _idToken();
     final uri   = _base.resolve(path);

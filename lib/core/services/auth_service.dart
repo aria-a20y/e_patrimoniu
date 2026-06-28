@@ -60,7 +60,7 @@ class AuthService {
   }) async {
     try {
       // Apelăm backend-ul care creează utilizatorul în Firebase Auth și PostgreSQL
-      await ApiService.post('/api/users/register', {
+      await ApiService.postPublic('/api/users/register', {
         'email': email.trim(),
         'password': password.trim(),
         'firstName': firstName.trim(),
