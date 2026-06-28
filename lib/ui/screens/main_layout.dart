@@ -77,7 +77,11 @@ class _MainLayoutState extends State<MainLayout> {
       case 5: return const ContractsScreen();
       case 6: return const AuctionsScreen();
       case 7: return const AiAssistantScreen();
-      case 8: return const UsersScreen();
+      case 8:
+        if (_currentRole != UserRole.administrator) {
+          return DashboardScreen(onNavigate: (i) => setState(() => _selectedIndex = i));
+        }
+        return const UsersScreen();
       case 9: return const AuditScreen();
       default: return ComingSoonScreen(title: _getComingSoonTitle(_selectedIndex));
     }

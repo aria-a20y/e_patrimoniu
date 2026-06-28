@@ -5,7 +5,8 @@ import '../../../core/models/user/user_model.dart';
 import '../../../core/services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final UserRole? initialRole;
+  const RegisterScreen({super.key, this.initialRole});
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
@@ -21,7 +22,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loading = false;
   bool _obscure = true;
   bool _obscureConfirm = true;
-  UserRole _selectedRole = UserRole.extern;
+  late UserRole _selectedRole;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRole = widget.initialRole ?? UserRole.extern;
+  }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
