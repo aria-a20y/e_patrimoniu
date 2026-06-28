@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../models/audit/audit_log_model.dart';
 import 'api_service.dart';
 
@@ -25,8 +26,9 @@ class AuditService {
     try {
       final data = await ApiService.get('/api/audit');
       return (data as List).map((e) => AuditLogModel.fromJson(e as Map<String, dynamic>)).toList();
-    } catch (_) {
-      return [];
+    } catch (e, st) {
+      debugPrint('AuditService.getLogs error: $e\n$st');
+      rethrow;
     }
   }
 }
