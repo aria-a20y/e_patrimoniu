@@ -16,6 +16,9 @@ backend/.env
 serviceAccount*.json
 *firebase-adminsdk*.json
 
+# Scripts locale cu credentiale - NEVER commit
+backend/set_audit_3.js
+
 # Logs
 *.log
 npm-debug.log*
