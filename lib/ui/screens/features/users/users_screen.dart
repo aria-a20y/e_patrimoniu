@@ -5,6 +5,158 @@ import '../../../../core/models/user/user_model.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../widgets/shared_widgets.dart';
 
+// ─── Dialog creare utilizator de admin ─────────────────────────────────────────
+Future<void> showCreateUserDialog(BuildContext context, VoidCallback onCreated) async {
+  await showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _CreateUserDialog(onCreated: onCreated),
+  );
+}
+
+class _CreateUserDialog extends StatefulWidget {
+  final VoidCallback onCreated;
+  const _CreateUserDialog({required this.onCreated});
+  @override
+  State<_CreateUserDialog> createState() => _CreateUserDialogState();
+}
+
+class _CreateUserDialogState extends State<_CreateUserDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _firstNameCtrl  = TextEditingController();
+  final _lastNameCtrl   = TextEditingController();
+  final _emailCtrl      = TextEditingController();
+  final _phoneCtrl      = TextEditingController();
+  final _deptCtrl       = TextEditingController();
+  final _passwordCtrl   = TextEditingController();
+  UserRole _role        = UserRole.extern;
+  bool _loading         = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _firstNameCtrl.dispose(); _lastNameCtrl.dispose(); _emailCtrl.dispose();
+    _phoneCtrl.dispose(); _deptCtrl.dispose(); _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      await AuthService.createUserAsAdmin(
+        email: _emailCtrl.text, password: _passwordCtrl.text,
+        firstName: _firstNameCtrl.text, lastName: _lastNameCtrl.text,
+        phone: _phoneCtrl.text, role: _role,
+        departament: _deptCtrl.text.isEmpty ? null : _deptCtrl.text,
+      );
+      if (mounted) { Navigator.of(context).pop(); widget.onCreated(); }
+    } catch (e) {
+      setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    }
+  }
+
+  InputDecoration _dec(String label, {IconData? icon}) => InputDecoration(
+    labelText: label,
+    prefixIcon: icon != null ? Icon(icon, size: 18, color: AppTheme.textGrey) : null,
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.borderColor)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.greenEmerald, width: 2)),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Row(children: [
+        Icon(Icons.person_add_outlined, color: AppTheme.greenEmerald),
+        SizedBox(width: 10),
+        Text('Adaugă utilizator', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, fontFamily: 'Inter')),
+      ]),
+      content: SizedBox(
+        width: 480,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (_error != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: AppTheme.errorRed.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                child: Row(children: [
+                  const Icon(Icons.error_outline, color: AppTheme.errorRed, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_error!, style: const TextStyle(color: AppTheme.errorRed, fontSize: 13))),
+                ]),
+              ),
+              const SizedBox(height: 12),
+            ],
+            Row(children: [
+              Expanded(child: TextFormField(controller: _firstNameCtrl, decoration: _dec('Prenume', icon: Icons.person_outline),
+                validator: (v) => (v == null || v.isEmpty) ? 'Obligatoriu' : null)),
+              const SizedBox(width: 12),
+              Expanded(child: TextFormField(controller: _lastNameCtrl, decoration: _dec('Nume'),
+                validator: (v) => (v == null || v.isEmpty) ? 'Obligatoriu' : null)),
+            ]),
+            const SizedBox(height: 12),
+            TextFormField(controller: _emailCtrl, decoration: _dec('Email', icon: Icons.email_outlined),
+              keyboardType: TextInputType.emailAddress,
+              validator: (v) => (v == null || !v.contains('@')) ? 'Email invalid' : null),
+            const SizedBox(height: 12),
+            TextFormField(controller: _passwordCtrl, decoration: _dec('Parolă', icon: Icons.lock_outline),
+              obscureText: true,
+              validator: (v) => (v == null || v.length < 8) ? 'Minim 8 caractere' : null),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: TextFormField(controller: _phoneCtrl, decoration: _dec('Telefon', icon: Icons.phone_outlined),
+                keyboardType: TextInputType.phone)),
+              const SizedBox(width: 12),
+              Expanded(child: TextFormField(controller: _deptCtrl, decoration: _dec('Departament', icon: Icons.business_outlined))),
+            ]),
+            const SizedBox(height: 16),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Tip cont', style: TextStyle(fontSize: 12, color: AppTheme.textGrey, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 8),
+              Row(children: UserRole.values.map((r) {
+                final sel = _role == r;
+                return Expanded(child: GestureDetector(
+                  onTap: () => setState(() => _role = r),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    margin: EdgeInsets.only(right: r != UserRole.values.last ? 8 : 0),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: sel ? AppTheme.greenEmerald.withValues(alpha: 0.12) : AppTheme.bgGrey,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: sel ? AppTheme.greenEmerald : AppTheme.borderColor, width: sel ? 1.5 : 1),
+                    ),
+                    child: Text(r.label, textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, fontFamily: 'Inter', fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
+                        color: sel ? AppTheme.greenEmerald : AppTheme.textGrey)),
+                  ),
+                ));
+              }).toList()),
+            ]),
+          ])),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Anulează', style: TextStyle(color: AppTheme.textGrey)),
+        ),
+        ElevatedButton(
+          onPressed: _loading ? null : _submit,
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.greenEmerald, foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+          child: _loading ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Creează cont', style: TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
+  }
+}
+
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key});
   @override
@@ -47,6 +199,12 @@ class _UsersScreenState extends State<UsersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bgGrey,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showCreateUserDialog(context, _loadData),
+        backgroundColor: AppTheme.greenEmerald,
+        icon: const Icon(Icons.person_add_outlined, color: Colors.white),
+        label: const Text('Utilizator nou', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontFamily: 'Inter')),
+      ),
       body: Column(
         children: [
           _buildFiltersBar(),

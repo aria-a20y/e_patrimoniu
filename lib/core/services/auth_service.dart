@@ -137,6 +137,27 @@ class AuthService {
     await prefs.clear();
   }
 
+  /// Creare utilizator de către admin (fără sign-in ulterior — nu deconectează adminul)
+  static Future<void> createUserAsAdmin({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+    required String phone,
+    required UserRole role,
+    String? departament,
+  }) async {
+    await ApiService.post('/api/users/register', {
+      'email': email.trim(),
+      'password': password.trim(),
+      'firstName': firstName.trim(),
+      'lastName': lastName.trim(),
+      'phone': phone.trim(),
+      'role': role.name,
+      'departament': departament,
+    });
+  }
+
   static Future<void> updateUserStatus(String uid, UserStatus status) async {
     await ApiService.put('/api/users/$uid/status', {'status': status.name});
   }

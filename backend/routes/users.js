@@ -71,10 +71,8 @@ router.post('/register', async (req, res) => {
     } catch (_) { /* token invalid sau neautentificat */ }
   }
 
+  // Admin poate alege orice rol; non-admin primește automat 'extern'
   const effectiveRole = callerIsAdmin ? (role ?? 'extern') : 'extern';
-  if (!callerIsAdmin && role && role !== 'extern') {
-    return res.status(403).json({ error: 'Acces interzis: numai adminii pot crea conturi cu rol privilegiat.' });
-  }
 
   try {
     const userRecord = await auth.createUser({
