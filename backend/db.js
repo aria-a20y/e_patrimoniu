@@ -306,15 +306,19 @@ async function seedClosedAuctionBids() {
  */
 async function seedAuditLog() {
   try {
-    await pool.query(`DELETE FROM audit_log`);
+    const { rows } = await pool.query('SELECT COUNT(*) AS cnt FROM audit_log');
+    if (parseInt(rows[0].cnt, 10) > 0) {
+      console.log('[DB] Jurnal audit: date existente, seed omis.');
+      return;
+    }
+    // Inserează 3 înregistrări demo doar dacă tabela e goală
     await pool.query(`
-      INSERT INTO audit_log (id, user_id, user_name, actiune, entitate, entitate_id, detalii, ip_address) VALUES
-      ('al000001-0001-0001-0001-000000000001','user_admin_001','Alexandru Ionescu','CREATE','properties','a0000001-0001-0001-0001-000000000001','Adaugat bun imobil: Teren Str. Florilor nr. 12','192.168.1.100'),
-      ('al000002-0002-0002-0002-000000000002','user_func_001', 'Maria Popescu',   'CREATE','contracts', 'c0000001-0001-0001-0001-000000000001','Creat contract inchiriere SC Alfa SRL, valoare 4800 RON','192.168.1.101'),
-      ('al000003-0003-0003-0003-000000000003','user_admin_001','Alexandru Ionescu','UPDATE','auctions',  'd0000001-0001-0001-0001-000000000001','Atribuit castigator licitatie spatiu comercial: George Marinescu, 2800 RON','192.168.1.100')
-      ON CONFLICT (id) DO NOTHING
+      INSERT INTO audit_log (user_id, user_name, actiune, entitate, entitate_id, detalii, ip_address, timestamp) VALUES
+      ('user_admin_001','Alexandru Ionescu','adaugare',  'properties','a0000001-0001-0001-0001-000000000001','Adaugat bun imobil: Teren Str. Florilor nr. 12',                               '192.168.1.100', NOW() - INTERVAL '3 days'),
+      ('user_func_001', 'Maria Popescu',   'adaugare',  'contracts', 'c0000001-0001-0001-0001-000000000001','Creat contract inchiriere SC Alfa SRL, valoare 4800 RON',                      '192.168.1.101', NOW() - INTERVAL '2 days'),
+      ('user_admin_001','Alexandru Ionescu','modificare','auctions',  'd0000001-0001-0001-0001-000000000001','Atribuit castigator licitatie spatiu comercial: George Marinescu, 2800 RON',  '192.168.1.100', NOW() - INTERVAL '1 day')
     `);
-    console.log('[DB] Jurnal audit resetat: 3 inregistrari.');
+    console.log('[DB] Jurnal audit: 3 inregistrari demo inserate.');
   } catch (err) {
     console.error('[DB] Eroare seedAuditLog:', err.message || err);
   }
