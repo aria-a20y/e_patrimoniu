@@ -11,6 +11,8 @@ import '../../../../core/services/other_services.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../widgets/shared_widgets.dart';
 import 'property_form.dart';
+import '../transactions/transaction_detail.dart';
+import '../contracts/contract_detail.dart';
 
 class PropertyDetailScreen extends StatefulWidget {
   final PropertyModel property;
@@ -472,30 +474,39 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       'finalizata': AppTheme.successGreen,
       'anulata': AppTheme.errorRed,
     };
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => TransactionDetailScreen(transaction: t)),
       ),
-      child: Row(children: [
-        Container(
-          width: 40, height: 40,
-          decoration: BoxDecoration(color: AppTheme.greenPale, borderRadius: BorderRadius.circular(8)),
-          child: const Icon(Icons.swap_horiz_rounded, color: AppTheme.greenEmerald, size: 20),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
         ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(t.tip.label, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600)),
-            Text('HCL: ${t.numarHcl} · ${DateFormat('dd.MM.yyyy').format(t.dataTransactie)}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textGrey)),
-          ],
-        )),
-        StatusBadge(label: t.status.label, color: statusColors[t.status.name] ?? AppTheme.textGrey),
-      ]),
+        child: Row(children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: AppTheme.greenPale, borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.swap_horiz_rounded, color: AppTheme.greenEmerald, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(t.tip.label, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600)),
+              Text('HCL: ${t.numarHcl} · ${DateFormat('dd.MM.yyyy').format(t.dataTransactie)}',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textGrey)),
+            ],
+          )),
+          StatusBadge(label: t.status.label, color: statusColors[t.status.name] ?? AppTheme.textGrey),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right_rounded, color: AppTheme.textGrey, size: 18),
+        ]),
+      ),
     );
   }
 
@@ -518,31 +529,40 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   }
 
   Widget _buildContractCard(ContractModel c) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ContractDetailScreen(contract: c)),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: Text(c.numarContract, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600))),
-          StatusBadge(label: c.status.label, color: c.status == ContractStatus.activ ? AppTheme.successGreen : AppTheme.textGrey),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text(c.numarContract, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600))),
+            StatusBadge(label: c.status.label, color: c.status == ContractStatus.activ ? AppTheme.successGreen : AppTheme.textGrey),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, color: AppTheme.textGrey, size: 18),
+          ]),
+          const SizedBox(height: 4),
+          Text(c.parteContractanta, style: const TextStyle(fontSize: 13, color: AppTheme.textGrey)),
+          const SizedBox(height: 6),
+          Row(children: [
+            const Icon(Icons.calendar_today_outlined, size: 14, color: AppTheme.textGrey),
+            const SizedBox(width: 4),
+            Text('${DateFormat('dd.MM.yyyy').format(c.dataInceput)} – ${DateFormat('dd.MM.yyyy').format(c.dataFinal)}',
+              style: const TextStyle(fontSize: 12, color: AppTheme.textGrey)),
+            const Spacer(),
+            Text('${c.valoare.toStringAsFixed(2)} ${c.valutaMoneda}',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.greenEmerald)),
+          ]),
         ]),
-        const SizedBox(height: 4),
-        Text(c.parteContractanta, style: const TextStyle(fontSize: 13, color: AppTheme.textGrey)),
-        const SizedBox(height: 6),
-        Row(children: [
-          const Icon(Icons.calendar_today_outlined, size: 14, color: AppTheme.textGrey),
-          const SizedBox(width: 4),
-          Text('${DateFormat('dd.MM.yyyy').format(c.dataInceput)} – ${DateFormat('dd.MM.yyyy').format(c.dataFinal)}',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textGrey)),
-          const Spacer(),
-          Text('${c.valoare.toStringAsFixed(2)} ${c.valutaMoneda}',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.greenEmerald)),
-        ]),
-      ]),
+      ),
     );
   }
 
@@ -565,25 +585,113 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   }
 
   Widget _buildAuctionCard(AuctionModel a) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
+    final statusColors = {
+      AuctionStatus.draft:      AppTheme.textGrey,
+      AuctionStatus.publicata:  AppTheme.infoBlue,
+      AuctionStatus.activa:     AppTheme.successGreen,
+      AuctionStatus.inchisa:    AppTheme.warningOrange,
+      AuctionStatus.atribuita:  AppTheme.greenDark,
+      AuctionStatus.anulata:    AppTheme.errorRed,
+      AuctionStatus.contestata: const Color(0xFF9333EA),
+    };
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => _showAuctionDetail(a, statusColors),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text(a.titlu, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600))),
+            StatusBadge(label: a.status.label, color: statusColors[a.status] ?? AppTheme.textGrey),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, color: AppTheme.textGrey, size: 18),
+          ]),
+          const SizedBox(height: 6),
+          Row(children: [
+            Text('Preț pornire: ${a.pretPornire.toStringAsFixed(0)} RON',
+              style: const TextStyle(fontSize: 12, color: AppTheme.textGrey)),
+            const Spacer(),
+            Text(a.tipAtribuire.label, style: const TextStyle(fontSize: 12, color: AppTheme.infoBlue, fontWeight: FontWeight.w500)),
+          ]),
+        ]),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: Text(a.titlu, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600))),
-          StatusBadge(label: a.status.label, color: a.status == AuctionStatus.activa ? AppTheme.successGreen : AppTheme.textGrey),
-        ]),
-        const SizedBox(height: 6),
-        Row(children: [
-          Text('Preț pornire: ${a.pretPornire.toStringAsFixed(0)} RON',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textGrey)),
-          const Spacer(),
-          Text(a.tipAtribuire.label, style: const TextStyle(fontSize: 12, color: AppTheme.infoBlue, fontWeight: FontWeight.w500)),
-        ]),
+    );
+  }
+
+  void _showAuctionDetail(AuctionModel a, Map<AuctionStatus, Color> statusColors) {
+    final fmt = DateFormat('dd.MM.yyyy');
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        builder: (_, controller) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(children: [
+                Expanded(child: Text(a.titlu,
+                  style: const TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textDark))),
+                StatusBadge(label: a.status.label, color: statusColors[a.status] ?? AppTheme.textGrey),
+              ]),
+            ),
+            const Divider(height: 1),
+            // Content
+            Expanded(child: ListView(
+              controller: controller,
+              padding: const EdgeInsets.all(20),
+              children: [
+                _sheetRow('Tip atribuire', a.tipAtribuire.label),
+                _sheetRow('Preț pornire', '${a.pretPornire.toStringAsFixed(2)} RON'),
+                _sheetRow('Pas licitare', '${a.pasLicitare.toStringAsFixed(2)} RON'),
+                _sheetRow('Garanție participare', '${a.garantieParticipare.toStringAsFixed(2)} RON'),
+                _sheetRow('Data început', fmt.format(a.dataInceput)),
+                _sheetRow('Data final', fmt.format(a.dataFinal)),
+                if (a.ofertaCastigatoare != null)
+                  _sheetRow('Ofertă câștigătoare', '${a.ofertaCastigatoare!.toStringAsFixed(2)} RON'),
+                if (a.castigatorNume != null && a.castigatorNume!.isNotEmpty)
+                  _sheetRow('Câștigător', a.castigatorNume!),
+                if (a.descriere != null && a.descriere!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text('Descriere', style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+                  const SizedBox(height: 6),
+                  Text(a.descriere!, style: const TextStyle(fontSize: 13, color: AppTheme.textGrey, height: 1.5)),
+                ],
+              ],
+            )),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(width: 140,
+          child: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textGrey, fontWeight: FontWeight.w500))),
+        Expanded(child: Text(value.isEmpty ? '—' : value,
+          style: const TextStyle(fontSize: 13, color: AppTheme.textDark, fontWeight: FontWeight.w600))),
       ]),
     );
   }
