@@ -5,10 +5,12 @@ class PropertyService {
   static Future<List<PropertyModel>> getAll({
     PropertyType? tip,
     PropertyStatus? status,
+    String? localitate,
   }) async {
     final query = <String, String>{};
     if (tip != null) query['tip'] = tip.name;
     if (status != null) query['status'] = status.name;
+    if (localitate != null) query['localitate'] = localitate;
 
     final data = await ApiService.get('/api/properties', query: query.isEmpty ? null : query);
     return (data as List).map((e) => PropertyModel.fromJson(e as Map<String, dynamic>)).toList();

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../theme/app_theme.dart';
 import '../../../../core/models/auction/auction_model.dart';
+import '../../../../core/models/property/property_model.dart';
 import '../../../../core/services/other_services.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/property_service.dart';
 import '../../../widgets/shared_widgets.dart';
 import 'bidder_profile_screen.dart';
 
@@ -410,79 +412,118 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
   void _showAddDialog(BuildContext context) {
     final formKey = GlobalKey<FormState>();
     final titluCtl = TextEditingController();
-    final propCtl = TextEditingController();
     final pretCtl = TextEditingController();
     final pasCtl = TextEditingController();
     final garantieCtl = TextEditingController();
     AuctionType tip = AuctionType.inchiriere;
+    List<PropertyModel> properties = [];
+    PropertyModel? selectedProperty;
+    bool loadingProperties = true;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Adaugă licitație', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700)),
-          content: SizedBox(
-            width: 500,
-            child: Form(
-              key: formKey,
-              child: SingleChildScrollView(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  AppTextField(label: 'Titlu licitație *', controller: titluCtl, validator: (v) => v?.trim().isEmpty == true ? 'Obligatoriu' : null),
-                  const SizedBox(height: 12),
-                  AppTextField(label: 'Bun imobiliar *', controller: propCtl, validator: (v) => v?.trim().isEmpty == true ? 'Obligatoriu' : null),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<AuctionType>(
-                    value: tip,
-                    decoration: InputDecoration(labelText: 'Tip atribuire *',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true, fillColor: Colors.white, contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14)),
-                    items: AuctionType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
-                    onChanged: (v) => setS(() => tip = v ?? tip),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(child: AppTextField(label: 'Preț pornire (RON) *', controller: pretCtl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      validator: (v) => double.tryParse(v ?? '') == null ? 'Numeric' : null)),
-                    const SizedBox(width: 10),
-                    Expanded(child: AppTextField(label: 'Pas licitare (RON) *', controller: pasCtl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      validator: (v) => double.tryParse(v ?? '') == null ? 'Numeric' : null)),
+        builder: (ctx, setS) {
+          // Încarcă proprietățile din Iași la prima deschidere
+          if (loadingProperties) {
+            PropertyService.getAll(localitate: 'Iași', status: PropertyStatus.activ).then((list) {
+              setS(() {
+                properties = list;
+                loadingProperties = false;
+              });
+            }).catchError((_) {
+              setS(() => loadingProperties = false);
+            });
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Adaugă licitație', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+            content: SizedBox(
+              width: 500,
+              child: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    AppTextField(label: 'Titlu licitație *', controller: titluCtl, validator: (v) => v?.trim().isEmpty == true ? 'Obligatoriu' : null),
+                    const SizedBox(height: 12),
+                    // Dropdown bunuri din Municipiul Iași
+                    loadingProperties
+                      ? const SizedBox(height: 56, child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+                      : DropdownButtonFormField<PropertyModel>(
+                          value: selectedProperty,
+                          decoration: InputDecoration(
+                            labelText: 'Bun imobiliar (Municipiul Iași) *',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            filled: true, fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          ),
+                          isExpanded: true,
+                          items: properties.map((p) => DropdownMenuItem(
+                            value: p,
+                            child: Text('${p.denumire} — ${p.adresa}', overflow: TextOverflow.ellipsis),
+                          )).toList(),
+                          onChanged: (v) => setS(() => selectedProperty = v),
+                          validator: (_) => selectedProperty == null ? 'Selectați un bun imobiliar' : null,
+                          hint: properties.isEmpty
+                            ? const Text('Nu există bunuri active în Iași', style: TextStyle(color: Colors.red))
+                            : const Text('Selectați bunul imobiliar'),
+                        ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<AuctionType>(
+                      value: tip,
+                      decoration: InputDecoration(labelText: 'Tip atribuire *',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        filled: true, fillColor: Colors.white, contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14)),
+                      items: AuctionType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.label))).toList(),
+                      onChanged: (v) => setS(() => tip = v ?? tip),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(child: AppTextField(label: 'Preț pornire (RON) *', controller: pretCtl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        validator: (v) => double.tryParse(v ?? '') == null ? 'Numeric' : null)),
+                      const SizedBox(width: 10),
+                      Expanded(child: AppTextField(label: 'Pas licitare (RON) *', controller: pasCtl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        validator: (v) => double.tryParse(v ?? '') == null ? 'Numeric' : null)),
+                    ]),
+                    const SizedBox(height: 12),
+                    AppTextField(label: 'Garanție participare (RON)', controller: garantieCtl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true)),
                   ]),
-                  const SizedBox(height: 12),
-                  AppTextField(label: 'Garanție participare (RON)', controller: garantieCtl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true)),
-                ]),
+                ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Anulare', style: TextStyle(color: AppTheme.textGrey))),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.greenEmerald, foregroundColor: Colors.white),
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                Navigator.pop(ctx);
-                final user = await AuthService.getCurrentUserModel();
-                final auction = AuctionModel(
-                  id: '', propertyId: 'unknown', propertyDenumire: propCtl.text.trim(),
-                  titlu: titluCtl.text.trim(), tipAtribuire: tip,
-                  pretPornire: double.tryParse(pretCtl.text) ?? 0,
-                  pasLicitare: double.tryParse(pasCtl.text) ?? 0,
-                  garantieParticipare: double.tryParse(garantieCtl.text) ?? 0,
-                  dataInceput: DateTime.now(),
-                  dataFinal: DateTime.now().add(const Duration(days: 14)),
-                  status: AuctionStatus.draft,
-                  createdAt: DateTime.now(), createdBy: user?.uid ?? '',
-                );
-                await AuctionService.create(auction);
-                _loadData();
-              },
-              child: const Text('Adaugă'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Anulare', style: TextStyle(color: AppTheme.textGrey))),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.greenEmerald, foregroundColor: Colors.white),
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+                  Navigator.pop(ctx);
+                  final user = await AuthService.getCurrentUserModel();
+                  final auction = AuctionModel(
+                    id: '',
+                    propertyId: selectedProperty!.id,
+                    propertyDenumire: selectedProperty!.denumire,
+                    titlu: titluCtl.text.trim(), tipAtribuire: tip,
+                    pretPornire: double.tryParse(pretCtl.text) ?? 0,
+                    pasLicitare: double.tryParse(pasCtl.text) ?? 0,
+                    garantieParticipare: double.tryParse(garantieCtl.text) ?? 0,
+                    dataInceput: DateTime.now(),
+                    dataFinal: DateTime.now().add(const Duration(days: 14)),
+                    status: AuctionStatus.draft,
+                    createdAt: DateTime.now(), createdBy: user?.uid ?? '',
+                  );
+                  await AuctionService.create(auction);
+                  _loadData();
+                },
+                child: const Text('Adaugă'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

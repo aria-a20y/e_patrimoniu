@@ -75,6 +75,20 @@ router.post('/', verifyToken, requireAdminOrStaff, async (req, res) => {
   }
 
   try {
+    // Validare: bunul trebuie să fie din Municipiul Iași
+    if (propertyId && propertyId !== 'unknown') {
+      const { rows: propRows } = await pool.query(
+        'SELECT localitate FROM properties WHERE id = $1',
+        [propertyId]
+      );
+      if (propRows.length === 0) {
+        return res.status(404).json({ error: 'Bunul imobiliar nu a fost găsit.' });
+      }
+      if (propRows[0].localitate !== 'Iași') {
+        return res.status(400).json({ error: 'Bunul imobiliar trebuie să fie din Municipiul Iași.' });
+      }
+    }
+
     const { rows } = await pool.query(
       `INSERT INTO auctions
          (property_id, property_denumire, titlu, tip_atribuire, pret_pornire, pas_licitare,

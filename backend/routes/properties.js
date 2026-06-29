@@ -23,9 +23,17 @@ router.get('/', verifyToken, async (req, res) => {
       FROM properties
     `;
     const params = [];
+    const conditions = [];
     if (req.query.tip) {
       params.push(req.query.tip);
-      query += ` WHERE tip = $${params.length}`;
+      conditions.push(`tip = $${params.length}`);
+    }
+    if (req.query.localitate) {
+      params.push(req.query.localitate);
+      conditions.push(`localitate = $${params.length}`);
+    }
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
     }
     query += ' ORDER BY created_at DESC';
 
