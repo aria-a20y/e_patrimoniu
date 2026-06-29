@@ -216,6 +216,19 @@ router.get('/:id/participants/me', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/auctions/:id/bids/me — verifică dacă utilizatorul curent a depus o ofertă
+router.get('/:id/bids/me', verifyToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, valoare FROM bids WHERE auction_id = $1 AND participant_id = $2 LIMIT 1`,
+      [req.params.id, req.uid]
+    );
+    res.json({ hasBid: rows.length > 0, bid: rows[0] || null });
+  } catch (err) {
+    res.status(500).json({ error: 'Eroare server.' });
+  }
+});
+
 // GET /api/auctions/:id/bids
 router.get('/:id/bids', verifyToken, async (req, res) => {
   try {
@@ -228,6 +241,79 @@ router.get('/:id/bids', verifyToken, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
+    res.status(500).json({ error: 'Eroare server.' });
+  }
+});
+
+// PUT /api/auctions/:id/bids/:bidId/criteria — actualizare criterii (admin/staff)
+router.put('/:id/bids/:bidId/criteria', verifyToken, requireAdminOrStaff, async (req, res) => {
+  const { criteria } = req.body;
+  if (!Array.isArray(criteria)) {
+    return res.status(400).json({ error: 'criteria trebuie să fie un array.' });
+  }
+  try {
+    for (const c of criteria) {
+      if (c.criterionIndex < 1 || c.criterionIndex > 10) continue;
+      await pool.query(`
+        INSERT INTO bid_criteria (bid_id, criterion_index, is_met)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (bid_id, criterion_index) DO UPDATE SET is_met = EXCLUDED.is_met
+      `, [req.params.bidId, c.criterionIndex, Boolean(c.isMet)]);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('PUT /auctions/:id/bids/:bidId/criteria:', err);
+    res.status(500).json({ error: 'Eroare server.' });
+  }
+});
+
+// POST /api/auctions/:id/auto-winner — calculează și setează câștigătorul automat
+router.post('/:id/auto-winner', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const { rows: existing } = await pool.query(
+      'SELECT status FROM auctions WHERE id = $1', [req.params.id]
+    );
+    if (existing.length === 0) return res.status(404).json({ error: 'Licitație negăsită.' });
+    if (!['activa', 'inchisa'].includes(existing[0].status)) {
+      return res.status(409).json({ error: 'Câștigătorul poate fi calculat doar pentru licitații active sau închise.' });
+    }
+
+    // Ofertantul cu cele mai multe criterii îndeplinite (≥7), tie-break: ofertă maximă
+    const { rows: candidates } = await pool.query(`
+      SELECT b.id, b.participant_id, b.participant_nume, b.valoare,
+             COUNT(bc.criterion_index) FILTER (WHERE bc.is_met = TRUE) AS met_count
+      FROM bids b
+      LEFT JOIN bid_criteria bc ON bc.bid_id = b.id
+      WHERE b.auction_id = $1 AND b.respinsa = FALSE
+      GROUP BY b.id, b.participant_id, b.participant_nume, b.valoare
+      HAVING COUNT(bc.criterion_index) FILTER (WHERE bc.is_met = TRUE) >= 7
+      ORDER BY met_count DESC, b.valoare DESC
+      LIMIT 1
+    `, [req.params.id]);
+
+    if (candidates.length === 0) {
+      return res.status(422).json({
+        error: 'Niciun ofertant nu îndeplinește minimum 7 criterii. Nu se poate desemna câștigătorul automat.',
+      });
+    }
+
+    const w = candidates[0];
+    await pool.query(
+      `UPDATE auctions SET status = 'atribuita',
+       castigator_id = $1, castigator_nume = $2, oferta_castigatoare = $3
+       WHERE id = $4`,
+      [w.participant_id, w.participant_nume, Number(w.valoare), req.params.id]
+    );
+
+    await writeAuditLog({
+      userId: req.uid, userName: req.userName,
+      actiune: 'actualizareStatus', entitate: 'Licitatie', entitateId: req.params.id,
+      detalii: `Câștigător desemnat automat: ${w.participant_nume} — ${Number(w.valoare).toFixed(2)} RON (${w.met_count}/10 criterii)`,
+    });
+
+    res.json({ success: true, winner: { name: w.participant_nume, bid: Number(w.valoare), metCount: Number(w.met_count) } });
+  } catch (err) {
+    console.error('POST /auctions/:id/auto-winner:', err);
     res.status(500).json({ error: 'Eroare server.' });
   }
 });
@@ -296,6 +382,15 @@ router.post('/:id/bids', verifyToken, async (req, res) => {
     );
     if (pRows.length === 0) {
       return res.status(403).json({ error: 'Nu ești înregistrat ca participant la această licitație.' });
+    }
+
+    // Verifică dacă utilizatorul a mai depus o ofertă (o singură ofertă permisă per participant)
+    const { rows: existingBid } = await pool.query(
+      'SELECT id FROM bids WHERE auction_id = $1 AND participant_id = $2 LIMIT 1',
+      [auctionId, req.uid]
+    );
+    if (existingBid.length > 0) {
+      return res.status(409).json({ error: 'Ați depus deja o ofertă la această licitație. Fiecare participant poate depune o singură ofertă.' });
     }
 
     const { rows: bidRows } = await pool.query(

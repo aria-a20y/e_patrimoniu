@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../../core/models/auction/auction_model.dart';
+import '../../../../core/models/user/user_model.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/other_services.dart';
 import '../../../theme/app_theme.dart';
 
 /// Afișează profilul unui ofertant cu cele 10 criterii de evaluare.
 /// Minimum 7 criterii îndeplinite = ofertant acceptat.
-/// Toate 10 = câștigător unic.
-class BidderProfileScreen extends StatelessWidget {
+/// Admin poate edita criteriile direct din acest ecran.
+class BidderProfileScreen extends StatefulWidget {
   final BidModel bid;
   final String auctionId;
   final bool isWinner;
@@ -17,6 +19,89 @@ class BidderProfileScreen extends StatelessWidget {
     required this.auctionId,
     required this.isWinner,
   });
+
+  @override
+  State<BidderProfileScreen> createState() => _BidderProfileScreenState();
+}
+
+class _BidderProfileScreenState extends State<BidderProfileScreen> {
+  List<BidCriterion>? _criteria;
+  bool _loading = true;
+  bool _editMode = false;
+  bool _saving = false;
+  bool _isAdmin = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final results = await Future.wait([
+        AuctionService.getBidCriteria(widget.auctionId, widget.bid.id),
+        AuthService.getCurrentUserModel(),
+      ]);
+      final criteria = results[0] as List<BidCriterion>;
+      final user = results[1] as UserModel?;
+
+      // Dacă nu există criterii în DB, inițializăm cu toate neîndeplinite
+      final full = List.generate(10, (i) {
+        final idx = i + 1;
+        final existing = criteria.where((c) => c.criterionIndex == idx);
+        return existing.isNotEmpty
+            ? existing.first
+            : BidCriterion(criterionIndex: idx, isMet: false);
+      });
+
+      if (mounted) {
+        setState(() {
+          _criteria = full;
+          _isAdmin = user?.role == UserRole.administrator || user?.role == UserRole.functionar;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _saveCriteria() async {
+    if (_criteria == null) return;
+    setState(() => _saving = true);
+    try {
+      await AuctionService.updateCriteria(widget.auctionId, widget.bid.id, _criteria!);
+      if (mounted) {
+        setState(() { _editMode = false; _saving = false; });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Criterii salvate cu succes!'),
+          backgroundColor: AppTheme.successGreen,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Eroare la salvare: $e'),
+          backgroundColor: AppTheme.errorRed,
+        ));
+      }
+    }
+  }
+
+  void _toggleCriterion(int index, bool value) {
+    if (_criteria == null) return;
+    setState(() {
+      _criteria = _criteria!.map((c) {
+        if (c.criterionIndex == index) {
+          return BidCriterion(criterionIndex: c.criterionIndex, isMet: value);
+        }
+        return c;
+      }).toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,86 +123,157 @@ class BidderProfileScreen extends StatelessWidget {
             color: AppTheme.textDark,
           ),
         ),
+        actions: [
+          if (_isAdmin && !_loading && _error == null) ...[
+            if (_editMode) ...[
+              TextButton(
+                onPressed: () => setState(() => _editMode = false),
+                child: const Text('Anulare', style: TextStyle(color: AppTheme.textGrey)),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ElevatedButton.icon(
+                  onPressed: _saving ? null : _saveCriteria,
+                  icon: _saving
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.save_rounded, size: 16),
+                  label: const Text('Salvează', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 13)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.successGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+            ] else
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: TextButton.icon(
+                  onPressed: () => setState(() => _editMode = true),
+                  icon: const Icon(Icons.edit_rounded, size: 16),
+                  label: const Text('Editează criterii', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                  style: TextButton.styleFrom(foregroundColor: AppTheme.infoBlue),
+                ),
+              ),
+          ],
+        ],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: AppTheme.borderColor),
         ),
       ),
-      body: FutureBuilder<List<BidCriterion>>(
-        future: AuctionService.getBidCriteria(auctionId, bid.id),
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snap.hasError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline, color: AppTheme.errorRed, size: 48),
-                  const SizedBox(height: 12),
-                  Text('Eroare: ${snap.error}',
-                    style: const TextStyle(color: AppTheme.textGrey)),
-                ],
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.error_outline, color: AppTheme.errorRed, size: 48),
+                    const SizedBox(height: 12),
+                    Text('Eroare: $_error', style: const TextStyle(color: AppTheme.textGrey)),
+                  ]),
+                )
+              : _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    final criteria = _criteria ?? [];
+    final metCount = criteria.where((c) => c.isMet).length;
+    final isAccepted = metCount >= 7;
+    final isFullWinner = metCount == 10;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Banner edit mode
+          if (_editMode)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.infoBlue.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.infoBlue.withValues(alpha: 0.3)),
               ),
-            );
-          }
-
-          final criteria = snap.data ?? [];
-          final metCount = criteria.where((c) => c.isMet).length;
-          final isAccepted = metCount >= 7;
-          final isFullWinner = metCount == 10;
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Card profil ofertant ──────────────────────────────────
-                _ProfileCard(
-                  bid: bid,
-                  isWinner: isWinner,
-                  metCount: metCount,
-                  isAccepted: isAccepted,
-                  isFullWinner: isFullWinner,
-                ),
-                const SizedBox(height: 20),
-
-                // ── Secțiune criterii ─────────────────────────────────────
-                const Text(
-                  'Criterii de evaluare',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textDark,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Minim 7 din 10 criterii trebuie îndeplinite pentru acceptare. '
-                  'Câștigătorul unic trebuie să le îndeplinească pe toate 10.',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textGrey, height: 1.5),
-                ),
-                const SizedBox(height: 14),
-
-                if (criteria.isEmpty)
-                  const _EmptyCriteria()
-                else
-                  ...criteria.map((c) => _CriterionTile(criterion: c)),
-
-                const SizedBox(height: 20),
-
-                // ── Rezumat ───────────────────────────────────────────────
-                _ScoreSummaryCard(
-                  metCount: metCount,
-                  isAccepted: isAccepted,
-                  isFullWinner: isFullWinner,
-                ),
-              ],
+              child: const Row(children: [
+                Icon(Icons.edit_note_rounded, color: AppTheme.infoBlue, size: 18),
+                SizedBox(width: 10),
+                Expanded(child: Text(
+                  'Mod editare: bifați criteriile îndeplinite de ofertant, apoi apăsați Salvează.',
+                  style: TextStyle(fontSize: 12, color: AppTheme.infoBlue, height: 1.4),
+                )),
+              ]),
             ),
-          );
-        },
+
+          // Card profil ofertant
+          _ProfileCard(
+            bid: widget.bid,
+            isWinner: widget.isWinner,
+            metCount: metCount,
+            isAccepted: isAccepted,
+            isFullWinner: isFullWinner,
+          ),
+          const SizedBox(height: 20),
+
+          // Secțiune criterii
+          Row(children: [
+            const Text(
+              'Criterii de evaluare',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textDark,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: (isAccepted ? AppTheme.successGreen : AppTheme.errorRed).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '$metCount / 10',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: isAccepted ? AppTheme.successGreen : AppTheme.errorRed,
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          Text(
+            'Minim 7 din 10 criterii trebuie îndeplinite pentru acceptare. '
+            'Câștigătorul unic trebuie să le îndeplinească pe toate 10.',
+            style: const TextStyle(fontSize: 12, color: AppTheme.textGrey, height: 1.5),
+          ),
+          const SizedBox(height: 14),
+
+          if (criteria.isEmpty)
+            const _EmptyCriteria()
+          else
+            ...criteria.map((c) => _editMode
+                ? _CriterionTileEditable(
+                    criterion: c,
+                    onChanged: (val) => _toggleCriterion(c.criterionIndex, val),
+                  )
+                : _CriterionTile(criterion: c)),
+
+          const SizedBox(height: 20),
+
+          // Rezumat scor
+          _ScoreSummaryCard(
+            metCount: metCount,
+            isAccepted: isAccepted,
+            isFullWinner: isFullWinner,
+          ),
+        ],
       ),
     );
   }
@@ -176,7 +332,7 @@ class _ProfileCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.06),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+              border: const Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
             child: Row(
               children: [
@@ -244,7 +400,6 @@ class _ProfileCard extends StatelessWidget {
                   _field('Ofertă respinsă', bid.respinsa ? 'Da' : 'Nu'),
                 ]),
                 const SizedBox(height: 12),
-                // Status acceptare
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -285,7 +440,7 @@ class _ProfileCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tile pentru un criteriu
+// Tile criteriu — read-only
 // ─────────────────────────────────────────────────────────────────────────────
 class _CriterionTile extends StatelessWidget {
   final BidCriterion criterion;
@@ -347,6 +502,81 @@ class _CriterionTile extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tile criteriu — editabil (pentru admin)
+// ─────────────────────────────────────────────────────────────────────────────
+class _CriterionTileEditable extends StatelessWidget {
+  final BidCriterion criterion;
+  final ValueChanged<bool> onChanged;
+
+  const _CriterionTileEditable({
+    required this.criterion,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final met = criterion.isMet;
+    final color = met ? AppTheme.successGreen : AppTheme.textGrey;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: met ? AppTheme.successGreen.withValues(alpha: 0.4) : AppTheme.borderColor,
+          width: met ? 1.5 : 1,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => onChanged(!met),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(children: [
+            Container(
+              width: 28, height: 28,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  '${criterion.criterionIndex}',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                criterion.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: met ? AppTheme.textDark : AppTheme.textGrey,
+                ),
+              ),
+            ),
+            Checkbox(
+              value: met,
+              onChanged: (val) => onChanged(val ?? false),
+              activeColor: AppTheme.successGreen,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Card rezumat scor
 // ─────────────────────────────────────────────────────────────────────────────
 class _ScoreSummaryCard extends StatelessWidget {
@@ -376,7 +606,6 @@ class _ScoreSummaryCard extends StatelessWidget {
             style: TextStyle(
               fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textDark)),
           const SizedBox(height: 12),
-          // Progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
@@ -405,7 +634,6 @@ class _ScoreSummaryCard extends StatelessWidget {
             _badge(10, metCount == 10),
           ]),
           const SizedBox(height: 10),
-          // Legend
           Row(children: [
             _legendDot(AppTheme.successGreen), const SizedBox(width: 4),
             const Text('Minim 7 = Acceptat', style: TextStyle(fontSize: 11, color: AppTheme.textGrey)),

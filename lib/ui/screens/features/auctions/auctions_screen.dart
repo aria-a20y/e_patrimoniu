@@ -243,11 +243,17 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
                 ),
               ),
             if (a.status == AuctionStatus.inchisa)
-              TextButton.icon(
-                onPressed: () => _showSelectWinner(context, a),
-                icon: const Icon(Icons.emoji_events_rounded, size: 16),
-                label: const Text('Desemnează câștigătorul'),
-                style: TextButton.styleFrom(foregroundColor: AppTheme.warningOrange),
+              ElevatedButton.icon(
+                onPressed: () => _autoSelectWinner(context, a),
+                icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+                label: const Text('Calculează câștigătorul',
+                  style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 13)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.warningOrange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
           ]),
         ),
@@ -349,37 +355,56 @@ class _AuctionsScreenState extends State<AuctionsScreen> {
     );
   }
 
-  void _showSelectWinner(BuildContext context, AuctionModel a) {
-    final numeCtl = TextEditingController();
-    final ofertaCtl = TextEditingController();
-    showDialog(
+  Future<void> _autoSelectWinner(BuildContext context, AuctionModel a) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Desemnează câștigătorul', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700)),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          AppTextField(label: 'Nume câștigător', controller: numeCtl),
-          const SizedBox(height: 12),
-          AppTextField(label: 'Ofertă câștigătoare (RON)', controller: ofertaCtl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+        title: const Row(children: [
+          Icon(Icons.auto_awesome_rounded, color: AppTheme.warningOrange, size: 22),
+          SizedBox(width: 10),
+          Text('Calculează câștigătorul', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 16)),
         ]),
+        content: const Text(
+          'Sistemul va selecta automat câștigătorul: ofertantul cu cele mai multe criterii îndeplinite (minim 7 din 10). '
+          'La egalitate, va câștiga cel cu oferta mai mare.\n\n'
+          'Licitația va trece la statusul "Atribuită".',
+          style: TextStyle(fontSize: 13, color: AppTheme.textGrey, height: 1.5),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Anulare', style: TextStyle(color: AppTheme.textGrey))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Anulare', style: TextStyle(color: AppTheme.textGrey))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warningOrange, foregroundColor: Colors.white),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await AuctionService.selectWinner(
-                a.id, 'winner_id', numeCtl.text.trim(),
-                double.tryParse(ofertaCtl.text) ?? 0,
-              );
-              _loadData();
-            },
-            child: const Text('Confirmă câștigătorul'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Calculează automat'),
           ),
         ],
       ),
     );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      final result = await AuctionService.autoSelectWinner(a.id);
+      _loadData();
+      if (context.mounted) {
+        final winner = result['winner'] as Map<String, dynamic>?;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(winner != null
+            ? 'Câștigător desemnat: ${winner['name']} — ${(winner['bid'] as num).toStringAsFixed(0)} RON (${winner['metCount']}/10 criterii)'
+            : 'Câștigător desemnat cu succes!'),
+          backgroundColor: AppTheme.warningOrange,
+          duration: const Duration(seconds: 5),
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$e'),
+          backgroundColor: AppTheme.errorRed,
+          duration: const Duration(seconds: 5),
+        ));
+      }
+    }
   }
 
   void _showAddDialog(BuildContext context) {
@@ -476,6 +501,7 @@ class _DepunereOfertaDialog extends StatefulWidget {
 class _DepunereOfertaDialogState extends State<_DepunereOfertaDialog> {
   bool _loading = true;
   bool _registered = false;
+  bool _hasBid = false;
   bool _submitting = false;
   final _ofertaCtl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -487,8 +513,15 @@ class _DepunereOfertaDialogState extends State<_DepunereOfertaDialog> {
   }
 
   Future<void> _checkRegistration() async {
-    final reg = await AuctionService.isRegistered(widget.auction.id);
-    if (mounted) setState(() { _registered = reg; _loading = false; });
+    final results = await Future.wait([
+      AuctionService.isRegistered(widget.auction.id),
+      AuctionService.hasUserBid(widget.auction.id),
+    ]);
+    if (mounted) setState(() {
+      _registered = results[0] as bool;
+      _hasBid = results[1] as bool;
+      _loading = false;
+    });
   }
 
   Future<void> _register() async {
@@ -580,7 +613,24 @@ class _DepunereOfertaDialogState extends State<_DepunereOfertaDialog> {
                 ]),
               ),
               const SizedBox(height: 16),
-              if (!_registered) ...[
+              if (_hasBid) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.infoBlue.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.infoBlue.withValues(alpha: 0.3)),
+                  ),
+                  child: const Row(children: [
+                    Icon(Icons.how_to_vote_rounded, color: AppTheme.infoBlue, size: 20),
+                    SizedBox(width: 10),
+                    Expanded(child: Text(
+                      'Ați depus deja o ofertă la această licitație.\nFiecare participant poate depune o singură ofertă.',
+                      style: TextStyle(fontSize: 13, color: AppTheme.infoBlue, height: 1.5),
+                    )),
+                  ]),
+                ),
+              ] else if (!_registered) ...[
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -676,7 +726,7 @@ class _DepunereOfertaDialogState extends State<_DepunereOfertaDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Anulare', style: TextStyle(color: AppTheme.textGrey)),
         ),
-        if (_registered)
+        if (_registered && !_hasBid)
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.greenEmerald, foregroundColor: Colors.white),

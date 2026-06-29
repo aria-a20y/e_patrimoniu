@@ -142,6 +142,38 @@ class AuctionService {
     final data = await ApiService.get('/api/auctions/$auctionId/bids/$bidId/criteria');
     return (data as List).map((e) => BidCriterion.fromJson(e as Map<String, dynamic>)).toList();
   }
+
+  /// Verifică dacă utilizatorul curent a depus deja o ofertă la această licitație
+  static Future<bool> hasUserBid(String auctionId) async {
+    try {
+      final data = await ApiService.get('/api/auctions/$auctionId/bids/me');
+      return (data as Map<String, dynamic>)['hasBid'] as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Actualizează criteriile unui ofertant (admin/staff)
+  static Future<void> updateCriteria(
+    String auctionId,
+    String bidId,
+    List<BidCriterion> criteria,
+  ) async {
+    await ApiService.put(
+      '/api/auctions/$auctionId/bids/$bidId/criteria',
+      {
+        'criteria': criteria
+            .map((c) => {'criterionIndex': c.criterionIndex, 'isMet': c.isMet})
+            .toList(),
+      },
+    );
+  }
+
+  /// Calculează și setează câștigătorul automat pe baza criteriilor
+  static Future<Map<String, dynamic>> autoSelectWinner(String auctionId) async {
+    final data = await ApiService.post('/api/auctions/$auctionId/auto-winner', {});
+    return data as Map<String, dynamic>;
+  }
 }
 
 // ============================================================
