@@ -376,7 +376,43 @@ async function seedBidCriteria() {
         );
       }
     }
-    console.log('[DB] bid_criteria populat cu succes (10 criterii × 10 oferte).');
+
+    // Adaugă criterii implicite pentru orice ofertă care nu are criterii înregistrate
+    // (ex: ofertele generate dinamic de seedClosedAuctionBids)
+    const { rows: bidsNoCriteria } = await pool.query(`
+      SELECT b.id,
+             ROW_NUMBER() OVER (PARTITION BY b.auction_id ORDER BY b.valoare DESC) AS rank_in_auction
+      FROM bids b
+      WHERE NOT EXISTS (SELECT 1 FROM bid_criteria bc WHERE bc.bid_id = b.id)
+    `);
+
+    // Criterii îndeplinite în funcție de locul în licitație (oferta cea mai mare = mai multe criterii)
+    const criteriaPatterns = [
+      [1,2,3,4,5,6,7,8,9,10], // locul 1 → 10/10 (câștigător)
+      [1,2,3,4,5,6,7,8,9],    // locul 2 → 9/10
+      [1,2,3,4,5,6,7,8],      // locul 3 → 8/10
+      [1,2,3,4,5,6,7],        // locul 4 → 7/10 (minim acceptat)
+      [1,2,3,4,5,6],          // locul 5 → 6/10 (respins)
+      [1,2,3,4,5],            // locul 6 → 5/10 (respins)
+    ];
+
+    for (const bid of bidsNoCriteria) {
+      const patternIdx = Math.min(parseInt(bid.rank_in_auction) - 1, criteriaPatterns.length - 1);
+      const met = criteriaPatterns[patternIdx];
+      for (let i = 1; i <= 10; i++) {
+        await pool.query(
+          `INSERT INTO bid_criteria (bid_id, criterion_index, is_met)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (bid_id, criterion_index) DO NOTHING`,
+          [bid.id, i, met.includes(i)]
+        );
+      }
+    }
+
+    if (bidsNoCriteria.length > 0) {
+      console.log(`[DB] Criterii implicite adăugate pentru ${bidsNoCriteria.length} oferte.`);
+    }
+    console.log('[DB] bid_criteria populat cu succes.');
   } catch (err) {
     console.error('[DB] Eroare seedBidCriteria:', err.message || err);
   }
