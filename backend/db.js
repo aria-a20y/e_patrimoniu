@@ -6,8 +6,8 @@ const path = require('path');
 
 /**
  * PostgreSQL connection pool.
- * Pe Render, seteazÄ variabila de mediu DATABASE_URL (furnizatÄ automat
- * dacÄ adaugi un PostgreSQL addon la serviciul tÄu).
+ * Pe Render, seteazÄ variabila de mediu DATABASE_URL (furnizatÄ automat
+ * dacÄ adaugi un PostgreSQL addon la serviciul tÄu).
  */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -24,8 +24,8 @@ pool.on('error', (err) => {
 });
 
 /**
- * RuleazÄ schema.sql la pornirea serverului.
- * Toate comenzile folosesc IF NOT EXISTS â sigur de apelat de mai multe ori.
+ * RuleazÄ schema.sql la pornirea serverului.
+ * Toate comenzile folosesc IF NOT EXISTS â sigur de apelat de mai multe ori.
  */
 async function migrateSchema() {
   // Adaugă coloanele noi în tabelele existente dacă lipsesc (migrare sigură).
@@ -64,8 +64,8 @@ async function initDb() {
 }
 
 /**
- * InsereazÄ date demo dacÄ tabelele sunt goale.
- * RuleazÄ automat dupÄ initDb() â sigur de apelat de mai multe ori (ON CONFLICT DO NOTHING).
+ * InsereazÄ date demo dacÄ tabelele sunt goale.
+ * RuleazÄ automat dupÄ initDb() â sigur de apelat de mai multe ori (ON CONFLICT DO NOTHING).
  */
 async function seedDb() {
   try {
@@ -75,9 +75,9 @@ async function seedDb() {
       return;
     }
 
-    console.log('[DB] Baza de date goala â inserez date demo...');
+    console.log('[DB] Baza de date goala â inserez date demo...');
 
-    // ââ 1. USERS (7 intrari) ââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ââ 1. USERS (7 intrari) ââââââââââââââââââââââââââââââââââââââââââââââââââ
     await pool.query(`
       INSERT INTO users (uid, "firstName", "lastName", email, phone, role, status, departament) VALUES
       ('user_admin_001', 'Alexandru', 'Ionescu',    'alex.ionescu@primarie.ro',     '0721000001', 'administrator', 'activ',    'Directia Patrimoniu'),
@@ -91,21 +91,21 @@ async function seedDb() {
       ON CONFLICT (uid) DO NOTHING
     `);
 
-    // ââ 2. PROPERTIES (7 intrari) âââââââââââââââââââââââââââââââââââââââââââââ
+    // ââ 2. PROPERTIES (7 intrari) âââââââââââââââââââââââââââââââââââââââââââââ
     await pool.query(`
       INSERT INTO properties (id, denumire, tip, adresa, localitate, domeniu_juridic, numar_cadastral, numar_carte_f, suprafata, valoare_inventar, destinatie, status, descriere, created_by) VALUES
-      ('a0000001-0001-0001-0001-000000000001','Teren Str. Florilor nr. 12',            'teren',      'Str. Florilor nr. 12',      'IaÈi', 'public',  '123456','CF-456789',  1250.00,   85000.00, 'Spatiu verde public',            'activ',      'Teren in domeniu public, str. Florilor','user_admin_001'),
-      ('a0000002-0002-0002-0002-000000000002','Cladire Primarie Sector 2',             'cladire',    'B-dul Unirii nr. 5',        'IaÈi', 'public',  '234567','CF-567890',  3200.00, 1500000.00, 'Sediu administrativ primarie',   'activ',      'Cladire P+3, sediu Primariei Sector 2','user_admin_001'),
-      ('a0000003-0003-0003-0003-000000000003','Spatiu Comercial Piata Centrala',       'spatiu',     'Piata Centrala nr. 1',      'IaÈi', 'privat',  '345678','CF-678901',   450.00,  320000.00, 'Spatiu comercial zona centrala', 'activ',      'Spatiu comercial parter, zona centrala','user_func_001'),
-      ('a0000004-0004-0004-0004-000000000004','Teren Industrial Zona Nord',            'teren',      'Str. Industriei nr. 44',    'IaÈi', 'privat',  '456789','CF-789012',  8500.00,  420000.00, 'Teren activitati industriale',   'activ',      'Teren intravilan destinatie industriala','user_func_002'),
-      ('a0000005-0005-0005-0005-000000000005','Constructie Dispensar Medical Rural',   'constructie','Str. Sanatatii nr. 3',      'IaÈi', 'public',  '567890','CF-890123',   680.00,  250000.00, 'Dispensar medical comunal',      'activ',      'Cladire P, dispensar medical UAT','user_func_001'),
-      ('a0000006-0006-0006-0006-000000000006','Teren Parc Tineretului',               'teren',      'Str. Tineretului nr. 10',   'IaÈi', 'public',  '678901','CF-901234',  5200.00,  180000.00, 'Parc public recreere',           'activ',      'Teren amenajat ca parc de recreere','user_admin_001'),
-      ('a0000007-0007-0007-0007-000000000007','Spatiu Birouri Centru Civic',           'spatiu',     'Calea Victoriei nr. 22',    'IaÈi', 'privat',  '789012','CF-012345',   320.00,  210000.00, 'Birouri administratie locala',   'inactiv',    'Spatiu birouri, necesita renovare','user_admin_002'),
-      ('a0000008-0008-0008-0008-000000000008','Teren Extravilan Zona Agricola',        'teren',      'Tarla 5, Parcela 12',       'IaÈi', 'privat',  '890123','CF-123456', 12000.00,   95000.00, 'Teren agricol in litigiu',       'inLitigiu',  'Litigiu cu proprietar vecin privind limita de proprietate','user_func_002')
+      ('a0000001-0001-0001-0001-000000000001','Teren Str. Florilor nr. 12',            'teren',      'Str. Florilor nr. 12',      'Iași', 'public',  '123456','CF-456789',  1250.00,   85000.00, 'Spatiu verde public',            'activ',      'Teren in domeniu public, str. Florilor','user_admin_001'),
+      ('a0000002-0002-0002-0002-000000000002','Cladire Primarie Sector 2',             'cladire',    'B-dul Unirii nr. 5',        'Iași', 'public',  '234567','CF-567890',  3200.00, 1500000.00, 'Sediu administrativ primarie',   'activ',      'Cladire P+3, sediu Primariei Sector 2','user_admin_001'),
+      ('a0000003-0003-0003-0003-000000000003','Spatiu Comercial Piata Centrala',       'spatiu',     'Piata Centrala nr. 1',      'Iași', 'privat',  '345678','CF-678901',   450.00,  320000.00, 'Spatiu comercial zona centrala', 'activ',      'Spatiu comercial parter, zona centrala','user_func_001'),
+      ('a0000004-0004-0004-0004-000000000004','Teren Industrial Zona Nord',            'teren',      'Str. Industriei nr. 44',    'Iași', 'privat',  '456789','CF-789012',  8500.00,  420000.00, 'Teren activitati industriale',   'activ',      'Teren intravilan destinatie industriala','user_func_002'),
+      ('a0000005-0005-0005-0005-000000000005','Constructie Dispensar Medical Rural',   'constructie','Str. Sanatatii nr. 3',      'Iași', 'public',  '567890','CF-890123',   680.00,  250000.00, 'Dispensar medical comunal',      'activ',      'Cladire P, dispensar medical UAT','user_func_001'),
+      ('a0000006-0006-0006-0006-000000000006','Teren Parc Tineretului',               'teren',      'Str. Tineretului nr. 10',   'Iași', 'public',  '678901','CF-901234',  5200.00,  180000.00, 'Parc public recreere',           'activ',      'Teren amenajat ca parc de recreere','user_admin_001'),
+      ('a0000007-0007-0007-0007-000000000007','Spatiu Birouri Centru Civic',           'spatiu',     'Calea Victoriei nr. 22',    'Iași', 'privat',  '789012','CF-012345',   320.00,  210000.00, 'Birouri administratie locala',   'inactiv',    'Spatiu birouri, necesita renovare','user_admin_002'),
+      ('a0000008-0008-0008-0008-000000000008','Teren Extravilan Zona Agricola',        'teren',      'Tarla 5, Parcela 12',       'Iași', 'privat',  '890123','CF-123456', 12000.00,   95000.00, 'Teren agricol in litigiu',       'inLitigiu',  'Litigiu cu proprietar vecin privind limita de proprietate','user_func_002')
       ON CONFLICT (id) DO NOTHING
     `);
 
-    // ââ 3. TRANSACTIONS (7 intrari) âââââââââââââââââââââââââââââââââââââââââââ
+    // ââ 3. TRANSACTIONS (7 intrari) âââââââââââââââââââââââââââââââââââââââââââ
     await pool.query(`
       INSERT INTO transactions (id, property_id, property_denumire, tip, descriere, numar_hcl, data_tranzactie, status, created_by) VALUES
       ('b0000001-0001-0001-0001-000000000001','a0000003-0003-0003-0003-000000000003','Spatiu Comercial Piata Centrala',     'inchiriere',           'Inchiriere spatiu comercial SC Alfa SRL',                  'HCL-2024-045','2024-03-15','finalizata', 'user_admin_001'),
@@ -119,7 +119,7 @@ async function seedDb() {
       ON CONFLICT (id) DO NOTHING
     `);
 
-    // ââ 4. CONTRACTS (7 intrari) ââââââââââââââââââââââââââââââââââââââââââââââ
+    // ââ 4. CONTRACTS (7 intrari) ââââââââââââââââââââââââââââââââââââââââââââââ
     await pool.query(`
       INSERT INTO contracts (id, property_id, property_denumire, transaction_id, numar_contract, parte_contractanta, data_inceput, data_final, valoare, valuta_moneda, status, note, created_by) VALUES
       ('c0000001-0001-0001-0001-000000000001','a0000003-0003-0003-0003-000000000003','Spatiu Comercial Piata Centrala',   'b0000001-0001-0001-0001-000000000001','CONTRACT-2024-001','SC Alfa SRL',                '2024-04-01','2027-03-31',   4800.00,'RON','activ',     'Chirie 400 RON/luna + TVA',                             'user_admin_001'),
@@ -133,7 +133,7 @@ async function seedDb() {
       ON CONFLICT (id) DO NOTHING
     `);
 
-    // ââ 5. AUCTIONS (7 intrari) âââââââââââââââââââââââââââââââââââââââââââââââ
+    // ââ 5. AUCTIONS (7 intrari) âââââââââââââââââââââââââââââââââââââââââââââââ
     await pool.query(`
       INSERT INTO auctions (id, property_id, property_denumire, titlu, tip_atribuire, pret_pornire, pas_licitare, garantie_participare, data_inceput, data_final, status, descriere, created_by) VALUES
       ('d0000001-0001-0001-0001-000000000001','a0000003-0003-0003-0003-000000000003','Spatiu Comercial Piata Centrala', 'Licitatie inchiriere spatiu comercial Piata Centrala 2025', 'inchiriere',    2500.00, 100.00,  500.00,'2025-01-10 09:00:00+02','2025-02-10 17:00:00+02','atribuita', 'Licitatie publica 3 ani',                             'user_admin_001'),
@@ -153,7 +153,7 @@ async function seedDb() {
       UPDATE auctions SET castigator_id='user_ext_001', castigator_nume='George Marinescu / Events SRL',   oferta_castigatoare=550.00   WHERE id='d0000005-0005-0005-0005-000000000005' AND castigator_id IS NULL;
     `);
 
-    // ââ 6. BIDS (7 intrari) âââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ââ 6. BIDS (7 intrari) âââââââââââââââââââââââââââââââââââââââââââââââââââ
     await pool.query(`
       INSERT INTO bids (id, auction_id, participant_id, participant_nume, valoare, data_ora, validata, respinsa) VALUES
       ('e0000001-0001-0001-0001-000000000001','d0000001-0001-0001-0001-000000000001','user_ext_001','George Marinescu / SC Alfa SRL',   2600.00,'2025-01-20 10:15:00+02',TRUE, FALSE),
@@ -169,7 +169,7 @@ async function seedDb() {
       ON CONFLICT (id) DO NOTHING
     `);
 
-    // ââ 7. AUCTION_PARTICIPANTS (7 intrari) âââââââââââââââââââââââââââââââââââ
+    // ââ 7. AUCTION_PARTICIPANTS (7 intrari) âââââââââââââââââââââââââââââââââââ
     await pool.query(`
       INSERT INTO auction_participants (id, auction_id, user_id) VALUES
       ('f0000001-0001-0001-0001-000000000001','d0000001-0001-0001-0001-000000000001','user_ext_001'),
@@ -185,7 +185,7 @@ async function seedDb() {
       ON CONFLICT (auction_id, user_id) DO NOTHING
     `);
 
-    // ââ 8. DOCUMENTS (7 intrari) ââââââââââââââââââââââââââââââââââââââââââââââ
+    // ââ 8. DOCUMENTS (7 intrari) ââââââââââââââââââââââââââââââââââââââââââââââ
     await pool.query(`
       INSERT INTO documents (id, denumire, tip, status, file_url, file_type, file_size, property_id, transaction_id, contract_id, auction_id, numar_document, data_document, emitent, note, uploaded_by) VALUES
       ('da000001-0001-0001-0001-000000000001','Extras Carte Funciara Spatiu Piata Centrala',    'extrasCF',      'verificat','https://storage.epatrimoniu.ro/docs/cf_001.pdf',  'pdf', 245760,'a0000003-0003-0003-0003-000000000003',NULL,NULL,NULL,'CF-2024-001','2024-02-15','OCPI Timis',              'Extras CF actualizat, fara sarcini',              'user_func_001'),
@@ -199,7 +199,7 @@ async function seedDb() {
       ON CONFLICT (id) DO NOTHING
     `);
 
-    // ââ 9. AUDIT_LOG (10 intrari) âââââââââââââââââââââââââââââââââââââââââââââ
+    // ââ 9. AUDIT_LOG (10 intrari) âââââââââââââââââââââââââââââââââââââââââââââ
     // Audit log: gestionat de seedAuditLog()
 
     console.log('[DB] Date demo inserate cu succes! (8 tabele populate, minim 7 randuri fiecare)');
@@ -209,16 +209,15 @@ async function seedDb() {
 }
 
 /**
- * InsereazÄ cÃ¢te un document (extrasCF) pentru fiecare proprietate
+ * Inserează câte un document (extrasCF) pentru fiecare proprietate
  * care nu are niciun document asociat.
- * Idempotent â sigur de apelat de mai multe ori.
+ * Idempotent — sigur de apelat de mai multe ori.
  */
 async function seedPropertyDocuments() {
   try {
-    // Migrare: toate bunurile -> Municipiul IaÈi
-    await pool.query(`UPDATE properties SET localitate = 'IaÈi' WHERE localitate != 'IaÈi'`);
+    // localitate fix: removed corrupted UPDATE that was re-setting all values
 
-    // InsereazÄ document implicit pentru fiecare bun fÄrÄ documente
+    // Inserează document implicit pentru fiecare bun fără documente
     const result = await pool.query(`
       INSERT INTO documents (denumire, tip, status, file_url, file_type, file_size, property_id)
       SELECT
@@ -243,10 +242,10 @@ async function seedPropertyDocuments() {
 }
 
 /**
- * RuleazÄ seed_extra.sql la fiecare pornire a serverului.
- * FoloseÈte ON CONFLICT DO NOTHING â sigur de apelat de mai multe ori.
- * AdaugÄ datele suplimentare (20 proprietÄÈi, 24 tranzacÈii, 30 contracte, 44 licitaÈii)
- * chiar dacÄ baza nu e goalÄ.
+ * Rulează seed_extra.sql la fiecare pornire a serverului.
+ * Folosește ON CONFLICT DO NOTHING — sigur de apelat de mai multe ori.
+ * Adaugă datele suplimentare (20 proprietăți, 24 tranzacții, 30 contracte, 44 licitații)
+ * chiar dacă baza nu e goală.
  */
 /**
  * Adaugă oferte (bids) pentru licitațiile cu status 'inchisa' sau 'atribuita'.
@@ -387,12 +386,12 @@ async function seedExtra() {
   try {
     const seedExtraPath = path.join(__dirname, 'seed_extra.sql');
     if (!fs.existsSync(seedExtraPath)) {
-      console.log('[DB] seed_extra.sql nu existÄ, omis.');
+      console.log('[DB] seed_extra.sql nu există, omis.');
       return;
     }
     const sql = fs.readFileSync(seedExtraPath, 'utf8');
     await pool.query(sql);
-    console.log('[DB] seed_extra.sql rulat cu succes â date suplimentare inserate.');
+    console.log('[DB] seed_extra.sql rulat cu succes — date suplimentare inserate.');
   } catch (err) {
     console.error('[DB] Eroare la seed_extra:', err.message || err);
   }
