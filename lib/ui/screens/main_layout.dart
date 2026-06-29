@@ -291,15 +291,13 @@ class _MainLayoutState extends State<MainLayout> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        (user?.displayName?.isNotEmpty == true)
-                            ? user!.displayName!
-                            : (user?.email ?? 'Utilizator'),
+                        user?.displayName ?? 'Utilizator',
                         style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        _currentRole.label,
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10),
+                        user?.email ?? '',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
