@@ -10,8 +10,7 @@ import '../../../../core/services/auth_service.dart';
 import '../../../widgets/shared_widgets.dart';
 
 class DocumentsScreen extends StatefulWidget {
-  final VoidCallback? onNavigateToScan;
-  const DocumentsScreen({super.key, this.onNavigateToScan});
+  const DocumentsScreen({super.key});
   @override
   State<DocumentsScreen> createState() => _DocumentsScreenState();
 }
@@ -104,109 +103,6 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     }
   }
 
-  void _showAddOptions() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Adaugă document',
-              style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Alege modalitatea de adăugare',
-              style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textGrey),
-            ),
-            const SizedBox(height: 20),
-            // Opțiunea 1: Adăugare manuală
-            InkWell(
-              onTap: () {
-                Navigator.pop(ctx);
-                _uploadDocument();
-              },
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.borderColor),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(children: [
-                  Container(
-                    width: 44, height: 44,
-                    decoration: BoxDecoration(
-                      color: AppTheme.greenEmerald.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.upload_file_rounded, color: AppTheme.greenEmerald, size: 22),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Adăugare manuală',
-                        style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600)),
-                      SizedBox(height: 2),
-                      Text('Încarcă un fișier PDF, imagine sau document Word',
-                        style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textGrey)),
-                    ]),
-                  ),
-                  const Icon(Icons.chevron_right_rounded, color: AppTheme.textGrey),
-                ]),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Opțiunea 2: Scanare document
-            InkWell(
-              onTap: () {
-                Navigator.pop(ctx);
-                if (widget.onNavigateToScan != null) {
-                  widget.onNavigateToScan!();
-                }
-              },
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.borderColor),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(children: [
-                  Container(
-                    width: 44, height: 44,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.document_scanner_rounded, color: Color(0xFF7C3AED), size: 22),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Scanare document',
-                        style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600)),
-                      SizedBox(height: 2),
-                      Text('Extrage automat câmpurile dintr-un document cadastral',
-        style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textGrey)),
-                    ]),
-                  ),
-                  const Icon(Icons.chevron_right_rounded, color: AppTheme.textGrey),
-                ]),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<DocumentType?> _showTipDialog() {
     DocumentType selected = DocumentType.altele;
     return showDialog<DocumentType>(
@@ -263,8 +159,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 if (docs.isEmpty) return EmptyState(
                   message: 'Niciun document găsit',
                   icon: Icons.folder_outlined,
-                  actionLabel: 'Adaugă document',
-                  onAction: _showAddOptions,
+                  actionLabel: 'Încarcă document',
+                  onAction: _uploadDocument,
                 );
                 return ListView.separated(
                   padding: const EdgeInsets.all(16),
@@ -278,11 +174,11 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _uploading ? null : _showAddOptions,
+        onPressed: _uploading ? null : _uploadDocument,
         backgroundColor: AppTheme.greenEmerald,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Adaugă document', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+        icon: const Icon(Icons.upload_file_rounded),
+        label: const Text('Încarcă document', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
       ),
     );
   }

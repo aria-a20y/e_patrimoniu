@@ -72,7 +72,7 @@ class _MainLayoutState extends State<MainLayout> {
     switch (_selectedIndex) {
       case 0: return DashboardScreen(onNavigate: (i) => setState(() => _selectedIndex = i));
       case 1: return const PropertiesScreen();
-      case 2: return DocumentsScreen(onNavigateToScan: () => setState(() => _selectedIndex = 3));
+      case 2: return const DocumentsScreen();
       case 3: return const ScanningScreen();
       case 4: return const TransactionsScreen();
       case 5: return const ContractsScreen();
