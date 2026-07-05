@@ -10,7 +10,7 @@ git add -A
 
 echo.
 echo === Commit ===
-git commit -m "Fix AI assistant: inlocuieste Stream.value() cu state local, animatie typing looping"
+git commit -m "feat: buton Adauga document cu optiuni manuale si scanare in DocumentsScreen"
 
 echo.
 echo === Fetch origin ===
