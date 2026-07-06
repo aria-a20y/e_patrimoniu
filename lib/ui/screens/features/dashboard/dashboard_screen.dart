@@ -310,6 +310,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SizedBox(
             height: 180,
             child: LineChart(LineChartData(
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipColor: (_) => AppTheme.greenEmerald,
+                  getTooltipItems: (spots) => spots.map((s) => LineTooltipItem(
+                    '${s.y.toInt()}M',
+                    const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12, fontFamily: 'Inter'),
+                  )).toList(),
+                ),
+              ),
               gridData: FlGridData(
                 show: true,
                 getDrawingHorizontalLine: (v) => FlLine(color: AppTheme.borderColor, strokeWidth: 1),
@@ -414,7 +423,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(title: 'Tranzacții recente', icon: Icons.swap_horiz_rounded),
+          InkWell(
+            onTap: widget.onNavigate != null ? () => widget.onNavigate!(4) : null,
+            borderRadius: BorderRadius.circular(8),
+            child: SectionHeader(title: 'Tranzacții recente', icon: Icons.swap_horiz_rounded),
+          ),
           const SizedBox(height: 12),
           FutureBuilder<List<TransactionModel>>(
             future: _recentTxFuture,
@@ -428,33 +441,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final txs = (snap.data ?? []).take(5).toList();
               if (txs.isEmpty) return const Text('Nicio tranzacție', style: TextStyle(color: AppTheme.textGrey));
               return Column(
-                children: txs.map((t) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 8, height: 8,
-                        decoration: BoxDecoration(color: _txStatusColor(t.status.name), shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(t.tip.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textDark)),
-                            Text(t.propertyDenumire, style: const TextStyle(fontSize: 11, color: AppTheme.textGrey), overflow: TextOverflow.ellipsis),
-                          ],
+                children: txs.map((t) => InkWell(
+                  onTap: widget.onNavigate != null ? () => widget.onNavigate!(4) : null,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 8, height: 8,
+                          decoration: BoxDecoration(color: _txStatusColor(t.status.name), shape: BoxShape.circle),
                         ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: _txStatusColor(t.status.name).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(t.tip.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textDark)),
+                              Text(t.propertyDenumire, style: const TextStyle(fontSize: 11, color: AppTheme.textGrey), overflow: TextOverflow.ellipsis),
+                            ],
+                          ),
                         ),
-                        child: Text(t.status.label, style: TextStyle(fontSize: 10, color: _txStatusColor(t.status.name), fontWeight: FontWeight.w600)),
-                      ),
-                    ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _txStatusColor(t.status.name).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(t.status.label, style: TextStyle(fontSize: 10, color: _txStatusColor(t.status.name), fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
                   ),
                 )).toList(),
               );
@@ -476,7 +493,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(title: 'Licitații recente', icon: Icons.gavel_rounded),
+          InkWell(
+            onTap: widget.onNavigate != null ? () => widget.onNavigate!(6) : null,
+            borderRadius: BorderRadius.circular(8),
+            child: SectionHeader(title: 'Licitații recente', icon: Icons.gavel_rounded),
+          ),
           const SizedBox(height: 12),
           FutureBuilder<List<AuctionModel>>(
             future: _recentAuctionFuture,
@@ -490,30 +511,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final auctions = (snap.data ?? []).take(5).toList();
               if (auctions.isEmpty) return const Text('Nicio licitație', style: TextStyle(color: AppTheme.textGrey));
               return Column(
-                children: auctions.map((a) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.gavel_rounded, size: 16, color: AppTheme.greenMid),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(a.titlu, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textDark), overflow: TextOverflow.ellipsis),
-                            Text('${a.pretPornire.toStringAsFixed(0)} RON pornire', style: const TextStyle(fontSize: 11, color: AppTheme.textGrey)),
-                          ],
+                children: auctions.map((a) => InkWell(
+                  onTap: widget.onNavigate != null ? () => widget.onNavigate!(6) : null,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.gavel_rounded, size: 16, color: AppTheme.greenMid),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(a.titlu, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textDark), overflow: TextOverflow.ellipsis),
+                              Text('${a.pretPornire.toStringAsFixed(0)} RON pornire', style: const TextStyle(fontSize: 11, color: AppTheme.textGrey)),
+                            ],
+                          ),
                         ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: _auctionStatusColor(a.status.name).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _auctionStatusColor(a.status.name).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(a.status.label, style: TextStyle(fontSize: 10, color: _auctionStatusColor(a.status.name), fontWeight: FontWeight.w600)),
                         ),
-                        child: Text(a.status.label, style: TextStyle(fontSize: 10, color: _auctionStatusColor(a.status.name), fontWeight: FontWeight.w600)),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 )).toList(),
               );
