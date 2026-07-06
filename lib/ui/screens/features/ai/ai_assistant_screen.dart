@@ -324,74 +324,52 @@ class _AiAssistantScreenState extends State<AiAssistantScreen>
   }
 
   Widget _buildWelcomeView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    final welcomeMsg = ChatMessage(
+      id: 'welcome',
+      sessionId: '',
+      content: 'Bună ziua! Sunt Asistentul e-Patrimoniu.\n\nVă pot ajuta cu informații despre:\n- Bunuri imobiliare (terenuri, clădiri, spații)\n- Tranzacții și contracte\n- Licitații și proceduri competitive\n- Documente necesare\n- Legislație aplicabilă patrimoniului public\n\nCe doriți să știți?',
+      isUser: false,
+      timestamp: DateTime.now(),
+    );
+
+    return ListView(
+      controller: _scrollCtrl,
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildMessageBubble(welcomeMsg),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                  color: AppTheme.greenPale,
-                  borderRadius: BorderRadius.circular(24)),
-              child: const Icon(Icons.smart_toy_rounded,
-                  color: AppTheme.greenEmerald, size: 44),
-            ),
-            const SizedBox(height: 20),
-            const Text('Asistentul tău e-Patrimoniu',
-                style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textDark)),
-            const SizedBox(height: 8),
-            const Text(
-              'Pune o întrebare despre bunuri imobiliare, tranzacții, contracte sau licitații.',
-              style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textGrey,
-                  height: 1.5),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 28),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                'Ce documente sunt necesare pentru o licitație?',
-                'Cum funcționează concesionarea unui bun public?',
-                'Care sunt etapele vânzării unui bun din domeniu privat?',
-                'Ce este numărul cadastral?',
-              ]
-                  .map((q) => InkWell(
-                        onTap: () {
-                          _msgCtl.text = q;
-                          _send();
-                        },
+            'Ce documente sunt necesare pentru o licitație?',
+            'Cum funcționează concesionarea unui bun public?',
+            'Care sunt etapele vânzării unui bun din domeniu privat?',
+            'Ce este numărul cadastral?',
+          ]
+              .map((q) => InkWell(
+                    onTap: () {
+                      _msgCtl.text = q;
+                      _send();
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border:
-                                Border.all(color: AppTheme.borderColor),
-                          ),
-                          child: Text(q,
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textDark)),
-                        ),
-                      ))
-                  .toList(),
-            ),
-          ],
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: Text(q,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textDark)),
+                    ),
+                  ))
+              .toList(),
         ),
-      ),
+      ],
     );
   }
 
