@@ -338,33 +338,35 @@ class _AiAssistantScreenState extends State<AiAssistantScreen>
       children: [
         _buildMessageBubble(welcomeMsg),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             'Ce documente sunt necesare pentru o licitație?',
             'Cum funcționează concesionarea unui bun public?',
             'Care sunt etapele vânzării unui bun din domeniu privat?',
             'Ce este numărul cadastral?',
           ]
-              .map((q) => InkWell(
-                    onTap: () {
-                      _msgCtl.text = q;
-                      _send();
-                    },
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppTheme.borderColor),
+              .map((q) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: InkWell(
+                      onTap: () {
+                        _msgCtl.text = q;
+                        _send();
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppTheme.borderColor),
+                        ),
+                        child: Text(q,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textDark)),
                       ),
-                      child: Text(q,
-                          style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textDark)),
                     ),
                   ))
               .toList(),
