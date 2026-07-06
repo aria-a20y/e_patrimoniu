@@ -23,6 +23,8 @@ git commit -m "UI: role cards on register, removed from login"
 
 echo.
 echo Push in curs...
+git add -A
+git commit -m "update" 2>nul
 git push https://aria-a20y:%TOKEN%@github.com/aria-a20y/e_patrimoniu.git main
 
 echo.
