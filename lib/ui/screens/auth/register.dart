@@ -5,8 +5,7 @@ import '../../../core/models/user/user_model.dart';
 import '../../../core/services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
-  final UserRole? initialRole;
-  const RegisterScreen({super.key, this.initialRole});
+  const RegisterScreen({super.key});
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
@@ -22,13 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loading = false;
   bool _obscure = true;
   bool _obscureConfirm = true;
-  late UserRole _selectedRole;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedRole = widget.initialRole ?? UserRole.extern;
-  }
+  UserRole _selectedRole = UserRole.extern;
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -88,6 +81,68 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confirmPassCtl.dispose();
     _phoneCtl.dispose();
     super.dispose();
+  }
+
+  Widget _buildRoleSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Tip cont',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12, fontFamily: 'Inter'),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _buildRoleChip(UserRole.administrator, 'Administrator', Icons.admin_panel_settings_outlined),
+            const SizedBox(width: 8),
+            _buildRoleChip(UserRole.functionar, 'Funcționar', Icons.work_outline_rounded),
+            const SizedBox(width: 8),
+            _buildRoleChip(UserRole.extern, 'Extern', Icons.person_outline_rounded),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRoleChip(UserRole role, String label, IconData icon) {
+    final isSelected = _selectedRole == role;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedRole = role),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppTheme.greenEmerald.withValues(alpha: 0.25)
+                : Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? AppTheme.greenLight : Colors.white12,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: isSelected ? Colors.white : Colors.white38, size: 20),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.white38,
+                  fontSize: 10,
+                  fontFamily: 'Inter',
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -172,18 +227,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               const SizedBox(height: 14),
                               // Selecție rol
-                              DropdownButtonFormField<UserRole>(
-                                value: _selectedRole,
-                                dropdownColor: const Color(0xFF1B4332),
-                                style: const TextStyle(color: Colors.white, fontFamily: 'Inter'),
-                                decoration: AuthStyles.inputDecoration('Tip cont', context),
-                                items: const [
-                                  DropdownMenuItem(value: UserRole.extern,         child: Text('Utilizator')),
-                                  DropdownMenuItem(value: UserRole.functionar,     child: Text('Funcționar')),
-                                  DropdownMenuItem(value: UserRole.administrator,  child: Text('Administrator')),
-                                ],
-                                onChanged: (v) => setState(() => _selectedRole = v ?? UserRole.extern),
-                              ),
+                              _buildRoleSelector(),
                               const SizedBox(height: 14),
                               TextFormField(
                                 controller: _passCtl,
